@@ -7,11 +7,11 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset
-const imgPlants = new Image();
-imgPlants.src = 'Plants.png';
-const imgSupplies = new Image();
-imgSupplies.src = 'Supplies.png';
+// Load Asset (Pake file yang baru lu export)
+const imgPohon = new Image();
+imgPohon.src = 'Pohon.png';
+const imgJagung = new Image();
+imgJagung.src = 'Jagung.png'; // Hasil panennya kita pake jagung dulu
 
 // Data Map
 const map = [];
@@ -23,10 +23,10 @@ for(let y=0;y<ROWS;y++){
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
-    // Generate Pohon pake koordinat (Baris 2, Kolom 6 dari Plants.png)
+    // Generate Pohon pake Pohon.png
     let obj = null;
     if(t === 0 && Math.random() < 0.05 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
-        obj = { type: 'tree', sx: 5*32, sy: 1*32, sw: 32, sh: 32 }; 
+        obj = { type: 'tree' }; 
     }
 
     map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0, obj: obj };
@@ -43,15 +43,11 @@ let camera = { x:0, y:0 };
 let coins = 100;
 let tool = 'seed';
 
-// Di sini kita tentuin hasil panen pakai Pisang dari Supplies.png
 const CROPS = {
   seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12},
   carrot:{name:'Wortel',  cost:10, time:8000,  sell:25},
   corn:  {name:'Jagung',  cost:20, time:12000, sell:55},
 };
-
-// Koordinat Pisang dari Diagram B
-const BANANA_SPRITE = { x: 15, y: 32, w: 18, h: 18 };
 
 const TOOL_ICONS = {
   seed:  '<svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>',
@@ -65,38 +61,28 @@ function setTool(newTool) {
   document.getElementById('toolIcon').innerHTML = TOOL_ICONS[tool];
 }
 
-// --- INPUT ---
+// --- INPUT & JOYSTICK ---
 const keys = {};
-addEventListener('keydown', e=>{
-  keys[e.key.toLowerCase()] = true;
-  if(e.key === ' ') { e.preventDefault(); doAction(); }
-});
+addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; if(e.key === ' ') { e.preventDefault(); doAction(); } });
 addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
 
-// --- JOYSTICK ---
 const joy = document.getElementById('joy'), knob = document.getElementById('knob');
 let joyVec = {x:0,y:0}, joyActive = false;
 function joyStart(e){ joyActive = true; e.preventDefault(); }
 function joyMove(e){
-  if(!joyActive) return;
-  e.preventDefault();
+  if(!joyActive) return; e.preventDefault();
   const t = e.touches ? e.touches[0] : e;
   const r = joy.getBoundingClientRect();
   let dx = t.clientX - (r.left+r.width/2);
   let dy = t.clientY - (r.top+r.height/2);
-  const max = 30;
-  const len = Math.hypot(dx,dy);
+  const max = 30; const len = Math.hypot(dx,dy);
   if(len > max){ dx = dx/len*max; dy = dy/len*max; }
   knob.style.transform = `translate(${dx}px,${dy}px)`;
   joyVec = {x: dx/max, y: dy/max};
 }
 function joyEnd(){ joyActive = false; knob.style.transform=''; joyVec={x:0,y:0}; }
-joy.addEventListener('mousedown', joyStart);
-addEventListener('mousemove', joyMove);
-addEventListener('mouseup', joyEnd);
-joy.addEventListener('touchstart', joyStart, {passive:false});
-addEventListener('touchmove', joyMove, {passive:false});
-addEventListener('touchend', joyEnd);
+joy.addEventListener('mousedown', joyStart); addEventListener('mousemove', joyMove); addEventListener('mouseup', joyEnd);
+joy.addEventListener('touchstart', joyStart, {passive:false}); addEventListener('touchmove', joyMove, {passive:false}); addEventListener('touchend', joyEnd);
 document.getElementById('action').addEventListener('click', doAction);
 
 // --- POPUP LOGIC ---
@@ -132,7 +118,7 @@ function doAction(){
   if(t.tilled && t.crop && t.growth >= 1){
     coins += crop.sell;
     t.crop = null; t.growth = 0; t.tilled = false;
-    toast(`+${crop.sell} Koin (Pisang dipanen)`);
+    toast(`+${crop.sell} Koin`);
   } else if(!t.tilled){
     if(coins < crop.cost) return toast('Koin kurang!');
     coins -= crop.cost;
@@ -157,10 +143,7 @@ function drawTile(t, sx, sy){
   if(t.type === 0){
     ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
     ctx.fillStyle = '#8bc34a';
-    for(let i=0;i<6;i++){
-      const gx = px(sx) + ((i*7+13)%TILE), gy = px(sy) + ((i*11+5)%TILE);
-      ctx.fillRect(gx, gy, 3, 5);
-    }
+    for(let i=0;i<6;i++){ const gx = px(sx) + ((i*7+13)%TILE), gy = px(sy) + ((i*11+5)%TILE); ctx.fillRect(gx, gy, 3, 5); }
   } else if(t.type === 1 || t.tilled){
     ctx.fillStyle = '#6d4c41'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
     ctx.fillStyle = '#5d4037';
@@ -173,9 +156,12 @@ function drawTile(t, sx, sy){
     ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
   }
 
-  // Gambar Pohon
-  if(t.obj && t.obj.type === 'tree' && imgPlants.complete){
-    ctx.drawImage(imgPlants, t.obj.sx, t.obj.sy, t.obj.sw, t.obj.sh, px(sx), px(sy), TILE, TILE);
+  // Gambar Pohon (Skala disesuaiin biar proporsional)
+  if(t.obj && t.obj.type === 'tree' && imgPohon.complete){
+    // Kita gambar pohonnya di tengah tile, agak ke atas biar keliatan berdiri
+    const treeW = 50 * 1.2; // Lebar asli 50px, kita scale dikit
+    const treeH = 61 * 1.2;
+    ctx.drawImage(imgPohon, px(sx) + (TILE - treeW)/2, px(sy) - (treeH - TILE), treeW, treeH);
   }
   
   // Gambar Tanaman
@@ -183,19 +169,20 @@ function drawTile(t, sx, sy){
     const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
     t.growth = prog;
     
-    if(imgPlants.complete){
-        let size = TILE * (0.5 + prog*0.5);
-        let offset = TILE - size;
-        
-        if (prog >= 1) {
-            // Kalau udah mateng, gambar Pisang dari Supplies.png
-            if (imgSupplies.complete) {
-                ctx.drawImage(imgSupplies, BANANA_SPRITE.x, BANANA_SPRITE.y, BANANA_SPRITE.w, BANANA_SPRITE.h, px(sx)+offset/2, px(sy)+offset/2, size, size);
-            }
-        } else {
-            // Kalau belum mateng, gambar tunas kecil dari Plants.png
-            ctx.drawImage(imgPlants, 0, 320, 32, 32, px(sx)+offset/2, px(sy)+offset/2, size, size);
+    if (prog >= 1) {
+        // Kalau udah mateng, gambar Jagung
+        if (imgJagung.complete) {
+            const jW = 23 * 1.5; // Scale jagung biar keliatan
+            const jH = 23 * 1.5;
+            ctx.drawImage(imgJagung, px(sx) + (TILE - jW)/2, px(sy) + (TILE - jH)/2, jW, jH);
         }
+    } else {
+        // Kalau belum mateng, gambar kecambah ijo kecil
+        ctx.fillStyle = '#4caf50';
+        const size = 10 + (prog * 15);
+        ctx.beginPath();
+        ctx.ellipse(px(sx) + TILE/2, px(sy) + TILE/2, size/2, size, 0, 0, Math.PI*2);
+        ctx.fill();
     }
 
     // Tanda kalau siap panen
@@ -210,7 +197,6 @@ function drawTile(t, sx, sy){
 function drawPlayer(sx, sy){
   ctx.fillStyle = 'rgba(0,0,0,.25)';
   ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-2), 16, 6, 0,0,Math.PI*2); ctx.fill();
-
   const cx = px(sx), cy = px(sy);
   const walk = player.moving ? Math.sin(player.animT*12)*3 : 0;
   ctx.fillStyle = '#3e2723'; ctx.fillRect(cx+6, cy+28+walk, 8, 12); ctx.fillRect(cx+18, cy+28-walk, 8, 12);
@@ -242,7 +228,6 @@ function loop(now){
     if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
     else player.facing = dy>0?'down':'up';
     player.animT += dt;
-
     const nx = player.x + dx*player.speed*dt;
     const ny = player.y + dy*player.speed*dt;
     if(canWalk(nx, player.y)) player.x = nx;
@@ -273,10 +258,7 @@ function loop(now){
 
 function canWalk(nx, ny){
   const margin = 8;
-  const corners = [
-    [nx+margin, ny+margin], [nx+player.w-margin, ny+margin],
-    [nx+margin, ny+player.h-4], [nx+player.w-margin, ny+player.h-4]
-  ];
+  const corners = [ [nx+margin, ny+margin], [nx+player.w-margin, ny+margin], [nx+margin, ny+player.h-4], [nx+player.w-margin, ny+player.h-4] ];
   for(const [cx,cy] of corners){
     const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
     if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
@@ -286,10 +268,7 @@ function canWalk(nx, ny){
   return true;
 }
 
-function resize(){
-  VIEW_W = cv.width = innerWidth;
-  VIEW_H = cv.height = innerHeight;
-}
+function resize(){ VIEW_W = cv.width = innerWidth; VIEW_H = cv.height = innerHeight; }
 addEventListener('resize', resize);
 resize();
 document.getElementById('hint').addEventListener('click', e=> e.target.remove());
