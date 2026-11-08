@@ -7,7 +7,7 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset Tanaman
+// Load Asset
 const imgPohon = new Image();
 imgPohon.src = 'Pohon.png'; 
 
@@ -17,12 +17,8 @@ const jagungStages = [
 ];
 const jagungImages = jagungStages.map(src => { const img = new Image(); img.src = src; return img; });
 
-// Load Asset Karakter (1=Bawah, 2=Atas, 3=Kiri, 4=Kanan)
 const playerImages = {
-    down: new Image(),
-    up: new Image(),
-    left: new Image(),
-    right: new Image()
+    down: new Image(), up: new Image(), left: new Image(), right: new Image()
 };
 playerImages.down.src = '1.png';
 playerImages.up.src = '2.png';
@@ -35,15 +31,12 @@ for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
     let t = 0; 
-    // Air di kiri
     if(x < 3 && y > 5 && y < 25) t = 2;
-    // Danau di atas
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
-    // Jalan setapak
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
     let obj = null;
-    // Spawn pohon acak, tapi jangan di area tengah (biar spawn aman)
+    // Spawn pohon jangan di tengah biar aman
     if(t === 0 && Math.random() < 0.03 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
         obj = { type: 'tree' }; 
     }
@@ -51,17 +44,14 @@ for(let y=0;y<ROWS;y++){
   }
 }
 
-// CARI POSISI SPAWN YANG AMAN (BUKAN AIR)
+// Cari Spawn Aman
 let spawnX = Math.floor(COLS/2);
 let spawnY = Math.floor(ROWS/2);
-// Kalau di tengah ada air, geser ke bawah sampai dapet rumput
-while(map[spawnY][spawnX].type === 2) {
-    spawnY++; 
-}
+while(map[spawnY][spawnX].type === 2) { spawnY++; }
 
 const player = {
-  x: spawnX * TILE, y: spawnY * TILE, // Posisi spawn aman
-  speed: 180, w: 48, h: 64, 
+  x: spawnX * TILE, y: spawnY * TILE,
+  speed: 200, w: 48, h: 64,
   facing: 'down', moving: false, animT: 0
 };
 
@@ -69,13 +59,14 @@ let camera = { x:0, y:0 };
 let coins = 100;
 let tool = 'seed';
 
-const CROPS = {
-  seed:  {name:'Jagung', cost:5, time:12000, sell:30},
-};
+const CROPS = { seed: {name:'Jagung', cost:5, time:12000, sell:30} };
 
-// --- INPUT & JOYSTICK ---
+// --- INPUT ---
 const keys = {};
-addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; if(e.key === ' ') { e.preventDefault(); doAction(); } });
+addEventListener('keydown', e=>{ 
+  keys[e.key.toLowerCase()] = true; 
+  if(e.key === ' ') { e.preventDefault(); doAction(); } 
+});
 addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
 
 const joy = document.getElementById('joy'), knob = document.getElementById('knob');
@@ -97,7 +88,7 @@ joy.addEventListener('mousedown', joyStart); addEventListener('mousemove', joyMo
 joy.addEventListener('touchstart', joyStart, {passive:false}); addEventListener('touchmove', joyMove, {passive:false}); addEventListener('touchend', joyEnd);
 document.getElementById('action').addEventListener('click', doAction);
 
-// --- POPUP LOGIC ---
+// --- POPUP ---
 const popup = document.getElementById('settingsPopup');
 document.getElementById('menuBtn').addEventListener('click', () => popup.classList.add('active'));
 popup.addEventListener('click', (e) => { if (e.target === popup) popup.classList.remove('active'); });
@@ -112,7 +103,7 @@ document.getElementById('rotateBtn').addEventListener('click', async () => {
   } catch (err) { alert('Rotate manual aja bre'); }
 });
 
-// --- AKSI TANI ---
+// --- AKSI ---
 function doAction(){
   const px = player.x + player.w/2;
   const py = player.y + player.h;
@@ -126,15 +117,12 @@ function doAction(){
   if(t.type !== 0 && t.type !== 1 && !t.tilled) return;
   
   const crop = CROPS[tool];
-
   if(t.tilled && t.crop && t.growth >= 1){
-    coins += crop.sell;
-    t.crop = null; t.growth = 0; t.tilled = false;
+    coins += crop.sell; t.crop = null; t.growth = 0; t.tilled = false;
     toast(`+${crop.sell} Koin`);
   } else if(!t.tilled){
     if(coins < crop.cost) return toast('Koin kurang!');
-    coins -= crop.cost;
-    t.tilled = true; t.crop = tool; t.plantedAt = performance.now(); t.growth = 0;
+    coins -= crop.cost; t.tilled = true; t.crop = tool; t.plantedAt = performance.now(); t.growth = 0;
     toast(`${crop.name} ditanam`);
   }
   document.getElementById('coins').textContent = coins;
@@ -179,7 +167,6 @@ function drawTile(t, sx, sy){
     t.growth = prog;
     const stageIndex = Math.min(6, Math.floor(prog * 7)); 
     const currentImg = jagungImages[stageIndex];
-
     if (currentImg && currentImg.complete) {
         const imgRatio = currentImg.width / currentImg.height;
         const drawHeight = TILE * 1.2;
@@ -197,16 +184,13 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,.3)';
   ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-4), 16, 6, 0,0,Math.PI*2); ctx.fill();
 
-  // Gambar Karakter
   const currentImg = playerImages[player.facing];
   if (currentImg && currentImg.complete) {
       ctx.drawImage(currentImg, px(sx), px(sy) - 16, player.w, player.h);
   } else {
-      // Fallback
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
   }
 }
@@ -233,6 +217,8 @@ function loop(now){
     
     const nx = player.x + dx*player.speed*dt;
     const ny = player.y + dy*player.speed*dt;
+    
+    // Pengecekan tabrakan lebih toleran (hanya cek area tengah karakter)
     if(canWalk(nx, player.y)) player.x = nx;
     if(canWalk(player.x, ny)) player.y = ny;
   }
@@ -259,21 +245,38 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
+// Pengecekan tabrakan yang lebih longgar (cuma bagian tengah)
 function canWalk(nx, ny){
-  const margin = 8;
-  const corners = [ [nx+margin, ny+margin], [nx+player.w-margin, ny+margin], [nx+margin, ny+player.h-4], [nx+player.w-margin, ny+player.h-4] ];
-  for(const [cx,cy] of corners){
-    const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
+  // Titik tengah karakter
+  const cx = nx + player.w/2;
+  const cy = ny + player.h/2;
+  
+  // Cek 4 arah di sekitar titik tengah
+  const points = [
+    [cx, cy - 10], [cx, cy + 10], [cx - 15, cy], [cx + 15, cy]
+  ];
+  
+  for(const [px, py] of points){
+    const tx = Math.floor(px/TILE), ty = Math.floor(py/TILE);
     if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
-    if(map[ty][tx].type === 2) return false; 
-    if(map[ty][tx].obj && map[ty][tx].obj.type === 'tree') return false; 
+    if(map[ty][tx].type === 2) return false; // Air
+    if(map[ty][tx].obj && map[ty][tx].obj.type === 'tree') return false; // Pohon
   }
   return true;
 }
 
-function resize(){ VIEW_W = cv.width = innerWidth; VIEW_H = cv.height = innerHeight; }
-addEventListener('resize', resize);
+// Handler Resize
+function resize(){ 
+    VIEW_W = cv.width = window.innerWidth; 
+    VIEW_H = cv.height = window.innerHeight; 
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => {
+    // Delay dikit biar browser sempet update ukuran
+    setTimeout(resize, 300); 
+});
 resize();
+
 document.getElementById('hint').addEventListener('click', e=> e.target.remove());
 
 requestAnimationFrame(loop);
