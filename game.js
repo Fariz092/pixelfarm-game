@@ -9,29 +9,12 @@ let VIEW_W, VIEW_H;
 
 // Load 12 Asset Karakter
 const playerImages = {
-    left: {
-        walk1: new Image(),
-        idle: new Image(),
-        walk2: new Image()
-    },
-    right: {
-        walk1: new Image(),
-        idle: new Image(),
-        walk2: new Image()
-    },
-    up: {
-        walk1: new Image(),
-        idle: new Image(),
-        walk2: new Image()
-    },
-    down: {
-        walk1: new Image(),
-        idle: new Image(),
-        walk2: new Image()
-    }
+    left: { walk1: new Image(), idle: new Image(), walk2: new Image() },
+    right: { walk1: new Image(), idle: new Image(), walk2: new Image() },
+    up: { walk1: new Image(), idle: new Image(), walk2: new Image() },
+    down: { walk1: new Image(), idle: new Image(), walk2: new Image() }
 };
 
-// Isi Source Gambar
 playerImages.left.walk1.src = 'kiri_langkah1.png';
 playerImages.left.idle.src = 'kiri_diem.png';
 playerImages.left.walk2.src = 'kiri_langkah2.png';
@@ -64,12 +47,12 @@ const player = {
   x: Math.floor(COLS/2) * TILE, 
   y: Math.floor(ROWS/2) * TILE,
   speed: 200, 
-  w: 80,  // Ukuran render karakter
+  w: 80,  
   h: 100, 
   facing: 'down', 
   moving: false, 
   animT: 0,
-  frame: 'idle' // 'walk1', 'idle', 'walk2'
+  frame: 'idle' 
 };
 
 let camera = { x:0, y:0 };
@@ -131,18 +114,21 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  // Shadow
+  // Shadow digambar pas di area kaki
   ctx.fillStyle = 'rgba(0,0,0,.3)';
   ctx.beginPath(); 
-  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-15), 20, 7, 0,0,Math.PI*2); 
+  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-20), 20, 7, 0,0,Math.PI*2); 
   ctx.fill();
 
-  // Ambil gambar sesuai arah dan frame
   const currentImg = playerImages[player.facing][player.frame];
 
   if (currentImg && currentImg.complete) {
-      // Posisi Y digeser biar nempel tanah (gak melayang)
-      ctx.drawImage(currentImg, px(sx), px(sy) - (player.h - TILE), player.w, player.h);
+      // TRIK BIAR NEMPEL TANAH:
+      // player.h adalah 100. TILE adalah 48.
+      // Kita geser Y ke atas sebanyak (player.h - TILE + 20). 
+      // Angka 20 ini bisa lu ubah (misal 15 atau 25) biar kakinya pas banget di tanah.
+      const offsetY = player.h - TILE + 20; 
+      ctx.drawImage(currentImg, px(sx), px(sy) - offsetY, player.w, player.h);
   } else {
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
   }
@@ -165,7 +151,6 @@ function loop(now){
   player.moving = len > 0.05;
   
   if(player.moving){
-    // Tentukan arah hadap
     if (Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) player.facing = 'right';
         else player.facing = 'left';
@@ -174,7 +159,6 @@ function loop(now){
         else player.facing = 'up';
     }
     
-    // Animasi Jalan (Ganti frame tiap 0.15 detik)
     player.animT += dt;
     if (player.animT > 0.15) {
         if (player.frame === 'idle' || player.frame === 'walk2') player.frame = 'walk1';
@@ -185,10 +169,15 @@ function loop(now){
     const nx = player.x + dx*player.speed*dt;
     const ny = player.y + dy*player.speed*dt;
     
+    // Cek pergerakan X dan Y secara terpisah
     if(canWalk(nx, player.y)) player.x = nx;
     if(canWalk(player.x, ny)) player.y = ny;
+    
+    // Jaga-jaga kalau nyangkut di luar map
+    if (player.x < 0) player.x = 0;
+    if (player.y < 0) player.y = 0;
+    
   } else {
-    // Kalau diem, balikin ke frame diem
     player.frame = 'idle';
     player.animT = 0; 
   }
@@ -215,16 +204,21 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
+// COLLISION LEBIH LONGGAR
 function canWalk(nx, ny){
+  // Cuma ngecek area kaki (bawah tengah), biar badannya bisa "overlap" dikit
   const cx = nx + player.w/2;
-  const cy = ny + player.h/2;
-  const points = [ [cx, cy-10], [cx, cy+10], [cx-15, cy], [cx+15, cy] ];
+  const cy = ny + player.h - 15; // Titik di area kaki
   
-  for(const [px, py] of points){
-    const tx = Math.floor(px/TILE), ty = Math.floor(py/TILE);
-    if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
-    if(map[ty][tx].type === 2) return false; 
-  }
+  // Cek titik kaki aja
+  const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
+  
+  // Kalau di luar batas map, tolak
+  if(tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return false;
+  
+  // Kalau kena air, tolak
+  if(map[ty][tx].type === 2) return false; 
+  
   return true;
 }
 
