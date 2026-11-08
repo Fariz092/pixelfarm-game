@@ -8,48 +8,32 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
   html,body{height:100%;overflow:hidden;background:#1a1a1a;font-family:'Trebuchet MS',sans-serif;touch-action:none}
   #game{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width:100vw;height:100vh}
-  
-  /* HUD Atas (Gaya 3D) */
   .hud{position:fixed;top:16px;left:16px;display:flex;gap:8px;z-index:10;pointer-events:none}
   .hud-item{background:linear-gradient(180deg, #5a4b3c 0%, #3e3227 100%);color:#fff;padding:8px 14px;border-radius:8px;font-weight:bold;font-size:14px;border:2px solid #2a221b;box-shadow:0 4px 0 #1a1511, inset 0 2px 0 rgba(255,255,255,0.2);display:flex;align-items:center;gap:6px}
   .hud-item svg{width:16px;height:16px;fill:currentColor}
-
-  /* Tombol Menu Kanan Atas */
   .btn-menu{position:fixed;top:16px;right:16px;width:48px;height:48px;border-radius:10px;background:linear-gradient(180deg, #8f7a66 0%, #6b5b4e 100%);border:2px solid #3e3227;box-shadow:0 4px 0 #2a221b, inset 0 2px 0 rgba(255,255,255,0.2);z-index:10;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.1s}
   .btn-menu:active{transform:translateY(4px);box-shadow:0 0 0 #2a221b, inset 0 2px 0 rgba(255,255,255,0.2)}
   .btn-menu svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round}
-
-  /* Popup Papan Tani */
   .popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(3px);z-index:50;display:none;align-items:center;justify-content:center}
   .popup-overlay.active{display:flex}
   .wood-panel{background:linear-gradient(180deg, #e8d5b5 0%, #d4b896 100%);border:6px solid #6b5b4e;border-radius:16px;padding:24px;width:320px;text-align:center;box-shadow:0 10px 0 #3e3227, 0 20px 30px rgba(0,0,0,0.5);position:relative}
-  /* Paku di pojok papan */
   .wood-panel::before, .wood-panel::after{content:'';position:absolute;width:12px;height:12px;background:radial-gradient(circle at 30% 30%, #aaa, #444);border-radius:50%;border:1px solid #222;top:10px}
   .wood-panel::before{left:10px} .wood-panel::after{right:10px}
-  
   .wood-panel h2{color:#3e3227;font-size:20px;text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;border-bottom:3px dashed #b8a080;padding-bottom:10px}
-  
   .btn-wood{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;margin-bottom:12px;background:linear-gradient(180deg, #a88b64 0%, #7a5f40 100%);color:#fff;font-weight:bold;font-size:16px;border:2px solid #4a3b2a;border-radius:8px;box-shadow:0 4px 0 #3e3227, inset 0 2px 0 rgba(255,255,255,0.2);cursor:pointer;text-transform:uppercase;letter-spacing:1px}
   .btn-wood:active{transform:translateY(4px);box-shadow:0 0 0 #3e3227, inset 0 2px 0 rgba(255,255,255,0.2)}
   .btn-wood.danger{background:linear-gradient(180deg, #c65a5a 0%, #923e3e 100%);border-color:#5e2626;box-shadow:0 4px 0 #421a1a, inset 0 2px 0 rgba(255,255,255,0.2)}
   .btn-wood svg{width:20px;height:20px;fill:currentColor}
-
-  /* Joystick */
   .joystick{position:fixed;bottom:32px;left:32px;width:110px;height:110px;border-radius:50%;background:rgba(0,0,0,0.3);border:3px solid rgba(255,255,255,0.3);z-index:10;touch-action:none;backdrop-filter:blur(2px)}
   .knob{position:absolute;width:50px;height:50px;border-radius:50%;background:linear-gradient(180deg, #fff 0%, #ccc 100%);left:30px;top:30px;pointer-events:none;box-shadow:0 4px 8px rgba(0,0,0,0.5)}
-  
-  /* Tombol Aksi */
   .btn-action{position:fixed;bottom:48px;right:32px;width:80px;height:80px;border-radius:50%;background:linear-gradient(180deg, #fbbf24 0%, #d97706 100%);border:4px solid #000;z-index:10;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 0 #000, inset 0 4px 0 rgba(255,255,255,0.3);transition:transform 0.1s}
   .btn-action:active{transform:translateY(6px);box-shadow:0 0 0 #000, inset 0 4px 0 rgba(255,255,255,0.3)}
   .btn-action svg{width:36px;height:36px;fill:#000}
-
-  /* Teks Hint */
   .hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;background:rgba(0,0,0,.85);padding:20px 28px;border-radius:16px;text-align:center;font-size:15px;line-height:1.8;z-index:20;border:2px solid #555;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
-
 <div class="hud">
   <div class="hud-item" id="coinHud">
     <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
@@ -60,11 +44,9 @@
     <span id="toolLabel">Bibit</span>
   </div>
 </div>
-
 <div class="btn-menu" id="menuBtn">
   <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
 </div>
-
 <div class="popup-overlay" id="settingsPopup">
   <div class="wood-panel">
     <h2>Pengaturan</h2>
@@ -78,334 +60,15 @@
     </button>
   </div>
 </div>
-
 <div class="joystick" id="joy"><div class="knob" id="knob"></div></div>
 <div class="btn-action" id="action">
   <svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>
 </div>
-
 <div class="hint" id="hint">
   <b style="color:#fbbf24">Analogi Kiri</b> untuk gerak<br>
   <b style="color:#fbbf24">Tombol Kanan</b> untuk aksi<br><br>
   <span style="font-size:12px;opacity:.7">Klik untuk mulai</span>
 </div>
-
-<script>
-// --- LOGIKA POPUP ---
-const popup = document.getElementById('settingsPopup');
-document.getElementById('menuBtn').addEventListener('click', () => {
-  popup.classList.add('active');
-});
-popup.addEventListener('click', (e) => {
-  if (e.target === popup) popup.classList.remove('active');
-});
-document.getElementById('exitBtn').addEventListener('click', () => {
-  if(confirm('Keluar dari game?')) {
-    popup.classList.remove('active');
-    // Logika buat nutup app di Android nanti (kalau udah jadi APK)
-    if (navigator.app) navigator.app.exitApp(); 
-    else window.close();
-  }
-});
-document.getElementById('rotateBtn').addEventListener('click', async () => {
-  try {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-      if (screen.orientation && screen.orientation.lock) {
-        await screen.orientation.lock('landscape').catch(() => {});
-      }
-    } else {
-      await document.exitFullscreen();
-    }
-    popup.classList.remove('active');
-  } catch (err) {
-    alert('Browser HP lu blokir fitur rotate otomatis. Coba miringin HP manual ya.');
-  }
-});
-
-// --- GAME SETUP ---
-const cv = document.getElementById('game');
-const ctx = cv.getContext('2d');
-ctx.imageSmoothingEnabled = false;
-
-const TILE = 48;
-const COLS = 24, ROWS = 16;
-let VIEW_W, VIEW_H;
-
-const map = [];
-for(let y=0;y<ROWS;y++){
-  map[y]=[];
-  for(let x=0;x<COLS;x++){
-    let t = 0;
-    if(x<2 || y<2 || x>=COLS-2 || y>=ROWS-2) t = 2;
-    else if(x===10 && y>4 && y<12) t = 3;
-    map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0 };
-  }
-}
-
-const player = {
-  x: (COLS/2)*TILE, y: (ROWS/2)*TILE,
-  speed: 200, w: 32, h: 40,
-  facing: 'down', moving: false, animT: 0
-};
-
-let camera = { x:0, y:0 };
-let coins = 100;
-let tool = 'seed';
-
-const CROPS = {
-  seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12, color:'#7cb342'},
-  carrot:{name:'Wortel',  cost:10, time:8000,  sell:25, color:'#ef6c00'},
-  corn:  {name:'Jagung',  cost:20, time:12000, sell:55, color:'#fbc02d'},
-};
-
-// Ikon SVG buat HUD (Biar nggak emoji)
-const TOOL_ICONS = {
-  seed:  '<svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>',
-  carrot:'<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>',
-  corn:  '<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>'
-};
-
-function setTool(newTool) {
-  tool = newTool;
-  document.getElementById('toolLabel').textContent = CROPS[tool].name;
-  document.getElementById('toolIcon').innerHTML = TOOL_ICONS[tool];
-}
-
-// --- INPUT KEYBOARD ---
-const keys = {};
-addEventListener('keydown', e=>{
-  keys[e.key.toLowerCase()] = true;
-  if(e.key === ' ') { e.preventDefault(); doAction(); }
-  if(e.key === '1') setTool('seed');
-  if(e.key === '2') setTool('carrot');
-  if(e.key === '3') setTool('corn');
-});
-addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
-
-// --- JOYSTICK ---
-const joy = document.getElementById('joy'), knob = document.getElementById('knob');
-let joyVec = {x:0,y:0}, joyActive = false;
-
-function joyStart(e){ joyActive = true; e.preventDefault(); }
-function joyMove(e){
-  if(!joyActive) return;
-  e.preventDefault();
-  const t = e.touches ? e.touches[0] : e;
-  const r = joy.getBoundingClientRect();
-  let dx = t.clientX - (r.left+r.width/2);
-  let dy = t.clientY - (r.top+r.height/2);
-  const max = 30;
-  const len = Math.hypot(dx,dy);
-  if(len > max){ dx = dx/len*max; dy = dy/len*max; }
-  knob.style.transform = `translate(${dx}px,${dy}px)`;
-  joyVec = {x: dx/max, y: dy/max};
-}
-function joyEnd(){ joyActive = false; knob.style.transform=''; joyVec={x:0,y:0}; }
-
-joy.addEventListener('mousedown', joyStart);
-addEventListener('mousemove', joyMove);
-addEventListener('mouseup', joyEnd);
-joy.addEventListener('touchstart', joyStart, {passive:false});
-addEventListener('touchmove', joyMove, {passive:false});
-addEventListener('touchend', joyEnd);
-
-document.getElementById('action').addEventListener('click', doAction);
-
-// --- AKSI TANI ---
-function doAction(){
-  const px = player.x + player.w/2;
-  const py = player.y + player.h;
-  const fx = px + (player.facing==='left'?-TILE/2:player.facing==='right'?TILE/2:0);
-  const fy = py + (player.facing==='up'?-TILE/2:player.facing==='down'?TILE/2:0);
-  const tx = Math.floor(fx/TILE), ty = Math.floor(fy/TILE);
-  if(ty<0||ty>=ROWS||tx<0||tx>=COLS) return;
-  const t = map[ty][tx];
-  if(t.type !== 0 && !t.tilled) return;
-  const crop = CROPS[tool];
-
-  if(t.tilled && t.crop && t.growth >= 1){
-    coins += crop.sell;
-    t.crop = null; t.growth = 0; t.tilled = false;
-    toast(`+${crop.sell} Koin`);
-  } else if(!t.tilled){
-    if(coins < crop.cost) return toast('Koin kurang!');
-    coins -= crop.cost;
-    t.tilled = true; t.crop = tool; t.plantedAt = performance.now(); t.growth = 0;
-    toast(`${crop.name} ditanam`);
-  }
-  document.getElementById('coins').textContent = coins;
-}
-
-function toast(msg){
-  const d = document.createElement('div');
-  d.textContent = msg;
-  d.style.cssText = 'position:fixed;bottom:150px;left:50%;transform:translateX(-50%);background:#3e3227;color:#fff;padding:10px 20px;border-radius:8px;font-weight:bold;font-size:14px;z-index:30;pointer-events:none;transition:opacity .3s;border:2px solid #000;box-shadow:0 4px 0 #1a1511';
-  document.body.appendChild(d);
-  setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300)},1000);
-}
-
-// --- RENDER ---
-function px(x){ return Math.floor(x); }
-
-function drawTile(t, sx, sy){
-  if(t.type === 0){
-    ctx.fillStyle = '#7cb342';
-    ctx.fillRect(px(sx), px(sy), TILE, TILE);
-    ctx.fillStyle = '#8bc34a';
-    for(let i=0;i<6;i++){
-      const gx = px(sx) + ((i*7+13)%TILE);
-      const gy = px(sy) + ((i*11+5)%TILE);
-      ctx.fillRect(gx, gy, 3, 5);
-      ctx.fillRect(gx+1, gy-2, 1, 3);
-    }
-  } else if(t.type === 1 || t.tilled){
-    ctx.fillStyle = '#6d4c41'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
-    ctx.fillStyle = '#5d4037';
-    for(let i=0;i<3;i++) ctx.fillRect(px(sx), px(sy)+i*16+3, TILE, 4);
-  } else if(t.type === 2){
-    ctx.fillStyle = '#0288d1'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
-    ctx.fillStyle = '#4fc3f7';
-    const off = (performance.now()/40)%TILE;
-    ctx.fillRect(px(sx)+off, px(sy)+8, 12, 3);
-    ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
-  } else if(t.type === 3){
-    ctx.fillStyle = '#a1887f'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
-    ctx.fillStyle = '#8d6e63';
-    ctx.fillRect(px(sx)+4,px(sy)+4,TILE-8,TILE-8);
-  }
-  
-  if(t.crop){
-    const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
-    t.growth = prog;
-    const c = CROPS[t.crop];
-    const size = 12 + prog*20;
-    ctx.fillStyle = c.color;
-    ctx.beginPath();
-    ctx.arc(px(sx)+TILE/2, px(sy)+TILE/2 - (prog*4), size/2, 0, Math.PI*2);
-    ctx.fill();
-    if(prog >= 1){
-      ctx.fillStyle = '#ffd54f';
-      ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 4, 0, Math.PI*2); ctx.fill();
-    }
-  }
-}
-
-function drawPlayer(sx, sy){
-  ctx.fillStyle = 'rgba(0,0,0,.25)';
-  ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-2), 16, 6, 0,0,Math.PI*2); ctx.fill();
-
-  const cx = px(sx), cy = px(sy);
-  const walk = player.moving ? Math.sin(player.animT*12)*3 : 0;
-  ctx.fillStyle = '#3e2723';
-  ctx.fillRect(cx+6, cy+28+walk, 8, 12);
-  ctx.fillRect(cx+18, cy+28-walk, 8, 12);
-  ctx.fillStyle = '#1565c0';
-  ctx.fillRect(cx+4, cy+14, 24, 18);
-  ctx.fillStyle = '#0d47a1';
-  ctx.fillRect(cx+4, cy+14, 24, 3);
-  ctx.fillStyle = '#1565c0';
-  ctx.fillRect(cx+0, cy+18, 5, 12);
-  ctx.fillRect(cx+27, cy+18, 5, 12);
-  ctx.fillStyle = '#ffcc80';
-  ctx.fillRect(cx+8, cy, 16, 16);
-  ctx.fillStyle = '#4e342e';
-  ctx.fillRect(cx+8, cy, 16, 5);
-  ctx.fillRect(cx+8, cy, 3, 10);
-  ctx.fillRect(cx+21, cy, 3, 10);
-  ctx.fillStyle = '#000';
-  if(player.facing !== 'up'){
-    ctx.fillRect(cx+12, cy+8, 2, 3);
-    ctx.fillRect(cx+18, cy+8, 2, 3);
-  }
-  ctx.fillStyle = '#fbc02d';
-  ctx.fillRect(cx+4, cy-4, 24, 5);
-  ctx.fillRect(cx+8, cy-8, 16, 5);
-  ctx.fillStyle = '#f9a825';
-  ctx.fillRect(cx+8, cy-2, 16, 2);
-}
-
-// --- GAME LOOP ---
-let last = 0;
-function loop(now){
-  const dt = Math.min(50, now-last)/1000; last = now;
-
-  let dx=0, dy=0;
-  if(keys['w']||keys['arrowup']) dy -= 1;
-  if(keys['s']||keys['arrowdown']) dy += 1;
-  if(keys['a']||keys['arrowleft']) dx -= 1;
-  if(keys['d']||keys['arrowright']) dx += 1;
-  dx += joyVec.x; dy += joyVec.y;
-  const len = Math.hypot(dx,dy);
-  if(len > 1){ dx/=len; dy/=len; }
-
-  player.moving = len > 0.05;
-  if(player.moving){
-    if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
-    else player.facing = dy>0?'down':'up';
-    player.animT += dt;
-
-    const nx = player.x + dx*player.speed*dt;
-    const ny = player.y + dy*player.speed*dt;
-    if(canWalk(nx, player.y)) player.x = nx;
-    if(canWalk(player.x, ny)) player.y = ny;
-  }
-
-  const targetCx = player.x - VIEW_W/2 + player.w/2;
-  const targetCy = player.y - VIEW_H/2 + player.h/2;
-  camera.x += (targetCx - camera.x)*0.12;
-  camera.y += (targetCy - camera.y)*0.12;
-
-  camera.x = Math.max(0, Math.min(COLS*TILE - VIEW_W, camera.x));
-  camera.y = Math.max(0, Math.min(ROWS*TILE - VIEW_H, camera.y));
-
-  ctx.fillStyle = '#0288d1';
-  ctx.fillRect(0,0,VIEW_W,VIEW_H);
-
-  const startX = Math.floor(camera.x/TILE);
-  const startY = Math.floor(camera.y/TILE);
-  const endX = Math.ceil((camera.x+VIEW_W)/TILE);
-  const endY = Math.ceil((camera.y+VIEW_H)/TILE);
-  for(let y=startY;y<=endY;y++){
-    for(let x=startX;x<=endX;x++){
-      if(y<0||y>=ROWS||x<0||x>=COLS) continue;
-      const sx = x*TILE - camera.x;
-      const sy = y*TILE - camera.y;
-      drawTile(map[y][x], sx, sy);
-    }
-  }
-
-  drawPlayer(player.x - camera.x, player.y - camera.y);
-  requestAnimationFrame(loop);
-}
-
-function canWalk(nx, ny){
-  const margin = 8;
-  const corners = [
-    [nx+margin, ny+margin],
-    [nx+player.w-margin, ny+margin],
-    [nx+margin, ny+player.h-4],
-    [nx+player.w-margin, ny+player.h-4]
-  ];
-  for(const [cx,cy] of corners){
-    const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
-    if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
-    if(map[ty][tx].type === 2) return false;
-  }
-  return true;
-}
-
-function resize(){
-  VIEW_W = cv.width = innerWidth;
-  VIEW_H = cv.height = innerHeight;
-}
-addEventListener('resize', resize);
-resize();
-document.getElementById('hint').addEventListener('click', e=> e.target.remove());
-
-// Mulai Game
-setTool('seed');
-requestAnimationFrame(loop);
-</script>
+<script src="game.js"></script>
 </body>
 </html>

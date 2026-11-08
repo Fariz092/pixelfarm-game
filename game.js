@@ -1,275 +1,292 @@
-const TILE_SIZE = 48; // Diperbesar biar lebih HD
-const GRID_COLS = 15;
-const GRID_ROWS = 10;
+// --- SETUP & LOAD GAMBAR ---
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
 
-const config = {
-    type: Phaser.AUTO,
-    width: TILE_SIZE * GRID_COLS,
-    height: TILE_SIZE * GRID_ROWS,
-    parent: 'game-container',
-    backgroundColor: '#4a7c59',
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-    },
-    physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 0 }, debug: false }
-    },
-    scene: {
-        preload: preload,
-        create: create,
-        update: update
-    }
-};
+const TILE = 48;
+const COLS = 40, ROWS = 30;
+let VIEW_W, VIEW_H;
 
-const game = new Phaser.Game(config);
+// Load Asset
+const imgPlants = new Image();
+imgPlants.src = 'Plants.png';
+const imgSupplies = new Image();
+imgSupplies.src = 'Supplies.png';
 
-let player;
-let gridData = []; // Nyimpen data tiap kotak (rumput/tanah)
-let cursors;
-let wasd;
-let joystick;
-let actionBtn;
-
-function preload() {
-    document.getElementById('loading').style.display = 'none';
-    createProceduralAssets(this);
-}
-
-function create() {
-    // 1. Generate Grid Lahan
-    for (let x = 0; x < GRID_COLS; x++) {
-        gridData[x] = [];
-        for (let y = 0; y < GRID_ROWS; y++) {
-            let tileKey = (x + y) % 2 === 0 ? 'grass' : 'grass_dark';
-            let tile = this.add.image(x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2, tileKey);
-            
-            // Simpan data tile
-            gridData[x][y] = {
-                sprite: tile,
-                type: 'grass', // 'grass' atau 'dirt'
-                x: x,
-                y: y
-            };
-
-            // Garis grid tipis
-            let gridLine = this.add.rectangle(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
-            gridLine.setStrokeStyle(1, 0x000000, 0.1);
-            gridLine.setFillStyle(0x000000, 0);
-        }
-    }
-
-    // 2. Karakter Player
-    player = this.physics.add.sprite((GRID_COLS / 2) * TILE_SIZE, (GRID_ROWS / 2) * TILE_SIZE, 'player');
-    player.setCollideWorldBounds(true);
+// Data Map
+const map = [];
+for(let y=0;y<ROWS;y++){
+  map[y]=[];
+  for(let x=0;x<COLS;x++){
+    let t = 0; // 0=Grass, 1=Path, 2=Water
+    // Bikin sungai di pinggir kiri
+    if(x < 3 && y > 5 && y < 25) t = 2;
+    // Bikin danau di tengah atas
+    if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
+    // Bikin jalan setapak dari tengah ke atas
+    if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
-    // Bikin karakter lebih "hidup" (efek shadow)
-    player.setScale(0.8); // Skala disesuain biar proporsional sama tile
-
-    // 3. Setup Keyboard (Buat ngetes di laptop)
-    cursors = this.input.keyboard.createCursorKeys();
-    wasd = this.input.keyboard.addKeys('W,A,S,D');
-
-    // 4. Setup Virtual Joystick (Kiri Bawah)
-    this.createVirtualJoystick();
-
-    // 5. Setup Tombol Aksi (Kanan Bawah)
-    this.createActionButton();
-}
-
-function update() {
-    const speed = 200;
-    let vx = 0;
-    let vy = 0;
-
-    // Cek Input Keyboard
-    if (cursors.left.isDown || wasd.A.isDown) vx = -speed;
-    else if (cursors.right.isDown || wasd.D.isDown) vx = speed;
-    if (cursors.up.isDown || wasd.W.isDown) vy = -speed;
-    else if (cursors.down.isDown || wasd.S.isDown) vy = speed;
-
-    // Cek Input Joystick
-    if (joystick && joystick.forceX !== 0) vx = joystick.forceX * speed;
-    if (joystick && joystick.forceY !== 0) vy = joystick.forceY * speed;
-
-    player.setVelocity(vx, vy);
-
-    // Efek "Bounce" pas jalan
-    if (vx !== 0 || vy !== 0) {
-        player.setScale(0.8, 0.8 + Math.sin(this.time.now / 100) * 0.05);
-    } else {
-        player.setScale(0.8, 0.8);
+    // Generate Pohon (pakai indeks sprite dari Plants.png)
+    let obj = null;
+    if(t === 0 && Math.random() < 0.1 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
+        obj = { type: 'tree', spriteX: 0, spriteY: 0 };
     }
+
+    map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0, obj: obj };
+  }
 }
 
-// --- FUNGSI-FUNGSI BANTUAN ---
+const player = {
+  x: (COLS/2)*TILE, y: (ROWS/2)*TILE,
+  speed: 200, w: 32, h: 40,
+  facing: 'down', moving: false, animT: 0
+};
 
-// Bikin Analog Virtual
-Phaser.Scene.prototype.createVirtualJoystick = function() {
-    const baseX = 90;
-    const baseY = this.cameras.main.height - 90;
+let camera = { x:0, y:0 };
+let coins = 100;
+let tool = 'seed';
 
-    // Base Joystick
-    const base = this.add.circle(baseX, baseY, 50, 0x000000, 0.3).setScrollFactor(0).setInteractive();
-    base.setStrokeStyle(4, 0xffffff, 0.5);
+const CROPS = {
+  seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12, spriteX: 0, spriteY: 0},
+  carrot:{name:'Wortel',  cost:10, time:8000,  sell:25, spriteX: 0, spriteY: 0},
+  corn:  {name:'Jagung',  cost:20, time:12000, sell:55, spriteX: 0, spriteY: 0},
+};
 
-    // Knob Joystick
-    const knob = this.add.circle(baseX, baseY, 25, 0xffffff, 0.6).setScrollFactor(0);
+const TOOL_ICONS = {
+  seed:  '<svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>',
+  carrot:'<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>',
+  corn:  '<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>'
+};
+
+function setTool(newTool) {
+  tool = newTool;
+  document.getElementById('toolLabel').textContent = CROPS[tool].name;
+  document.getElementById('toolIcon').innerHTML = TOOL_ICONS[tool];
+}
+
+// --- INPUT ---
+const keys = {};
+addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(e.key === ' ') { e.preventDefault(); doAction(); }
+});
+addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
+
+// --- JOYSTICK ---
+const joy = document.getElementById('joy'), knob = document.getElementById('knob');
+let joyVec = {x:0,y:0}, joyActive = false;
+function joyStart(e){ joyActive = true; e.preventDefault(); }
+function joyMove(e){
+  if(!joyActive) return;
+  e.preventDefault();
+  const t = e.touches ? e.touches[0] : e;
+  const r = joy.getBoundingClientRect();
+  let dx = t.clientX - (r.left+r.width/2);
+  let dy = t.clientY - (r.top+r.height/2);
+  const max = 30;
+  const len = Math.hypot(dx,dy);
+  if(len > max){ dx = dx/len*max; dy = dy/len*max; }
+  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  joyVec = {x: dx/max, y: dy/max};
+}
+function joyEnd(){ joyActive = false; knob.style.transform=''; joyVec={x:0,y:0}; }
+joy.addEventListener('mousedown', joyStart);
+addEventListener('mousemove', joyMove);
+addEventListener('mouseup', joyEnd);
+joy.addEventListener('touchstart', joyStart, {passive:false});
+addEventListener('touchmove', joyMove, {passive:false});
+addEventListener('touchend', joyEnd);
+document.getElementById('action').addEventListener('click', doAction);
+
+// --- POPUP LOGIC ---
+const popup = document.getElementById('settingsPopup');
+document.getElementById('menuBtn').addEventListener('click', () => popup.classList.add('active'));
+popup.addEventListener('click', (e) => { if (e.target === popup) popup.classList.remove('active'); });
+document.getElementById('exitBtn').addEventListener('click', () => { if(confirm('Keluar?')) window.close(); });
+document.getElementById('rotateBtn').addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+    } else { await document.exitFullscreen(); }
+    popup.classList.remove('active');
+  } catch (err) { alert('Rotate manual aja bre'); }
+});
+
+// --- AKSI TANI ---
+function doAction(){
+  const px = player.x + player.w/2;
+  const py = player.y + player.h;
+  const fx = px + (player.facing==='left'?-TILE/2:player.facing==='right'?TILE/2:0);
+  const fy = py + (player.facing==='up'?-TILE/2:player.facing==='down'?TILE/2:0);
+  const tx = Math.floor(fx/TILE), ty = Math.floor(fy/TILE);
+  if(ty<0||ty>=ROWS||tx<0||tx>=COLS) return;
+  const t = map[ty][tx];
+  
+  if(t.obj && t.obj.type === 'tree') return toast('Ada pohon!');
+
+  if(t.type !== 0 && t.type !== 1 && !t.tilled) return;
+  const crop = CROPS[tool];
+
+  if(t.tilled && t.crop && t.growth >= 1){
+    coins += crop.sell;
+    t.crop = null; t.growth = 0; t.tilled = false;
+    toast(`+${crop.sell} Koin`);
+  } else if(!t.tilled){
+    if(coins < crop.cost) return toast('Koin kurang!');
+    coins -= crop.cost;
+    t.tilled = true; t.crop = tool; t.plantedAt = performance.now(); t.growth = 0;
+    toast(`${crop.name} ditanam`);
+  }
+  document.getElementById('coins').textContent = coins;
+}
+
+function toast(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.cssText = 'position:fixed;bottom:150px;left:50%;transform:translateX(-50%);background:#3e3227;color:#fff;padding:10px 20px;border-radius:8px;font-weight:bold;font-size:14px;z-index:30;pointer-events:none;transition:opacity .3s;border:2px solid #000;box-shadow:0 4px 0 #1a1511';
+  document.body.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300)},1000);
+}
+
+// --- RENDER ---
+function px(x){ return Math.floor(x); }
+
+function drawTile(t, sx, sy){
+  // Gambar Dasar (Tanah/Rumput/Air)
+  if(t.type === 0){
+    ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
+    ctx.fillStyle = '#8bc34a';
+    for(let i=0;i<6;i++){
+      const gx = px(sx) + ((i*7+13)%TILE), gy = px(sy) + ((i*11+5)%TILE);
+      ctx.fillRect(gx, gy, 3, 5);
+    }
+  } else if(t.type === 1 || t.tilled){
+    ctx.fillStyle = '#6d4c41'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
+    ctx.fillStyle = '#5d4037';
+    for(let i=0;i<3;i++) ctx.fillRect(px(sx), px(sy)+i*16+3, TILE, 4);
+  } else if(t.type === 2){
+    ctx.fillStyle = '#0288d1'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
+    ctx.fillStyle = '#4fc3f7';
+    const off = (performance.now()/40)%TILE;
+    ctx.fillRect(px(sx)+off, px(sy)+8, 12, 3);
+    ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
+  }
+
+  // Gambar Pohon dari Plants.png (Asumsi pohon di koordinat 0,0 ukuran 32x32)
+  if(t.obj && t.obj.type === 'tree' && imgPlants.complete){
+    // Scale 32px gambar jadi 48px (TILE)
+    ctx.drawImage(imgPlants, 0, 0, 32, 32, px(sx), px(sy)-16, TILE, TILE);
+  }
+  
+  // Gambar Tanaman
+  if(t.crop){
+    const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
+    t.growth = prog;
     
-    // Input
-    let pointerDown = false;
-
-    this.input.on('pointerdown', (pointer) => {
-        // Cek apakah yang disentuh area joystick (radius 100px dari base)
-        if (Phaser.Math.Distance.Between(pointer.x, pointer.y, baseX, baseY) < 100) {
-            pointerDown = true;
-        }
-    });
-
-    this.input.on('pointermove', (pointer) => {
-        if (pointerDown) {
-            const angle = Phaser.Math.Angle.Between(baseX, baseY, pointer.x, pointer.y);
-            const distance = Math.min(Phaser.Math.Distance.Between(baseX, baseY, pointer.x, pointer.y), 40);
-            
-            const knobX = baseX + Math.cos(angle) * distance;
-            const knobY = baseY + Math.sin(angle) * distance;
-            
-            knob.setPosition(knobX, knobY);
-
-            // Simpan arah (normalisasi -1 sampai 1)
-            joystick = {
-                forceX: Math.cos(angle) * (distance / 40),
-                forceY: Math.sin(angle) * (distance / 40)
-            };
-        }
-    });
-
-    this.input.on('pointerup', () => {
-        pointerDown = false;
-        knob.setPosition(baseX, baseY);
-        joystick = { forceX: 0, forceY: 0 };
-    });
-};
-
-// Bikin Tombol Aksi (Cangkul)
-Phaser.Scene.prototype.createActionButton = function() {
-    const btnX = this.cameras.main.width - 80;
-    const btnY = this.cameras.main.height - 80;
-
-    // Lingkaran Tombol
-    const btn = this.add.circle(btnX, btnY, 45, 0x22c55e, 0.8).setScrollFactor(0).setInteractive();
-    btn.setStrokeStyle(4, 0xffffff, 0.5);
-
-    // Icon (Pake teks dulu)
-    const btnText = this.add.text(btnX, btnY, '⛏️', { fontSize: '32px' }).setOrigin(0.5).setScrollFactor(0);
-
-    // Aksi pas diklik
-    btn.on('pointerdown', () => {
-        this.tryHoe();
-        
-        // Animasi tombol pencet
-        this.tweens.add({
-            targets: [btn, btnText],
-            scale: 0.9,
-            duration: 50,
-            yoyo: true
-        });
-    });
-};
-
-// Logika Nyangkul (Interaksi)
-Phaser.Scene.prototype.tryHoe = function() {
-    // Cari posisi grid tempat player berdiri
-    const gridX = Math.floor(player.x / TILE_SIZE);
-    const gridY = Math.floor(player.y / TILE_SIZE);
-
-    // Cek apakah posisi valid
-    if (gridX >= 0 && gridX < GRID_COLS && gridY >= 0 && gridY < GRID_ROWS) {
-        const tile = gridData[gridX][gridY];
-        
-        // Kalau masih rumput, ubah jadi tanah
-        if (tile.type === 'grass') {
-            tile.type = 'dirt';
-            tile.sprite.setTexture('dirt'); // Ganti gambar ke tanah
-            
-            // Efek partikel debu
-            this.add.particles(tile.sprite.x, tile.sprite.y, 'particle', {
-                speed: { min: 20, max: 50 },
-                angle: { min: 0, max: 360 },
-                scale: { start: 0.5, end: 0 },
-                lifespan: 400,
-                quantity: 8
-            });
-        } else {
-            // Kalau udah tanah, balikin jadi rumput (opsional)
-            tile.type = 'grass';
-            tile.sprite.setTexture('grass');
-        }
+    if(imgPlants.complete){
+        // Gambar bibit (ukuran kecil pas awal, gede pas mau panen)
+        let size = TILE * (0.4 + prog*0.6);
+        let offset = TILE - size;
+        // Ambil contoh gambar dari Plants (gambar tanaman kecil di pojok kiri bawah)
+        ctx.drawImage(imgPlants, 0, 300, 32, 32, px(sx)+offset/2, px(sy)+offset/2, size, size);
     }
-};
 
-// Bikin Aset Pixel Art Lanjutan (HD)
-function createProceduralAssets(scene) {
-    // --- ASSET RUMPUT ---
-    let grassCanvas = scene.textures.createCanvas('grass', TILE_SIZE, TILE_SIZE);
-    let gCtx = grassCanvas.getContext();
-    gCtx.fillStyle = '#5c9e68';
-    gCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-    gCtx.fillStyle = '#4d8a57';
-    gCtx.fillRect(12, 12, 6, 6);
-    gCtx.fillRect(36, 30, 6, 6);
-    grassCanvas.refresh();
-
-    // --- ASSET RUMPUT GELAP ---
-    let grassDarkCanvas = scene.textures.createCanvas('grass_dark', TILE_SIZE, TILE_SIZE);
-    let gdCtx = grassDarkCanvas.getContext();
-    gdCtx.fillStyle = '#52925e';
-    gdCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-    gdCtx.fillStyle = '#468252';
-    gdCtx.fillRect(12, 12, 6, 6);
-    gdCtx.fillRect(36, 30, 6, 6);
-    grassDarkCanvas.refresh();
-
-    // --- ASSET TANAH BAJAK ---
-    let dirtCanvas = scene.textures.createCanvas('dirt', TILE_SIZE, TILE_SIZE);
-    let dCtx = dirtCanvas.getContext();
-    dCtx.fillStyle = '#8b5a2b';
-    dCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-    dCtx.fillStyle = '#6d451f';
-    dCtx.fillRect(6, 18, 12, 8);
-    dCtx.fillRect(30, 36, 10, 8);
-    dCtx.fillRect(24, 6, 8, 8);
-    dirtCanvas.refresh();
-
-    // --- ASSET PLAYER (Karakter HD dikit) ---
-    let playerCanvas = scene.textures.createCanvas('player', TILE_SIZE, TILE_SIZE);
-    let pCtx = playerCanvas.getContext();
-    // Baju
-    pCtx.fillStyle = '#2563eb';
-    pCtx.fillRect(12, 16, 24, 24);
-    // Kulit / Kepala
-    pCtx.fillStyle = '#fcd34d';
-    pCtx.fillRect(12, 8, 24, 12);
-    // Topi
-    pCtx.fillStyle = '#ef4444';
-    pCtx.fillRect(8, 4, 32, 8);
-    // Mata
-    pCtx.fillStyle = '#111827';
-    pCtx.fillRect(18, 14, 4, 4);
-    pCtx.fillRect(26, 14, 4, 4);
-    // Kaki
-    pCtx.fillStyle = '#1e3a8a';
-    pCtx.fillRect(14, 40, 8, 4);
-    pCtx.fillRect(26, 40, 8, 4);
-    playerCanvas.refresh();
-
-    // --- ASSET PARTIKEL (Buat Efek Debu) ---
-    let particleCanvas = scene.textures.createCanvas('particle', 8, 8);
-    let ptCtx = particleCanvas.getContext();
-    ptCtx.fillStyle = '#8b5a2b';
-    ptCtx.beginPath();
-    ptCtx.arc(4, 4, 4, 0, Math.PI * 2);
-    ptCtx.fill();
-    particleCanvas.refresh();
+    if(prog >= 1){
+      ctx.fillStyle = '#ffd54f';
+      ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 6, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.stroke();
+    }
+  }
 }
+
+function drawPlayer(sx, sy){
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-2), 16, 6, 0,0,Math.PI*2); ctx.fill();
+
+  const cx = px(sx), cy = px(sy);
+  const walk = player.moving ? Math.sin(player.animT*12)*3 : 0;
+  ctx.fillStyle = '#3e2723'; ctx.fillRect(cx+6, cy+28+walk, 8, 12); ctx.fillRect(cx+18, cy+28-walk, 8, 12);
+  ctx.fillStyle = '#1565c0'; ctx.fillRect(cx+4, cy+14, 24, 18);
+  ctx.fillStyle = '#0d47a1'; ctx.fillRect(cx+4, cy+14, 24, 3);
+  ctx.fillStyle = '#1565c0'; ctx.fillRect(cx+0, cy+18, 5, 12); ctx.fillRect(cx+27, cy+18, 5, 12);
+  ctx.fillStyle = '#ffcc80'; ctx.fillRect(cx+8, cy, 16, 16);
+  ctx.fillStyle = '#4e342e'; ctx.fillRect(cx+8, cy, 16, 5); ctx.fillRect(cx+8, cy, 3, 10); ctx.fillRect(cx+21, cy, 3, 10);
+  if(player.facing !== 'up'){ ctx.fillStyle = '#000'; ctx.fillRect(cx+12, cy+8, 2, 3); ctx.fillRect(cx+18, cy+8, 2, 3); }
+  ctx.fillStyle = '#fbc02d'; ctx.fillRect(cx+4, cy-4, 24, 5); ctx.fillRect(cx+8, cy-8, 16, 5);
+}
+
+// --- GAME LOOP ---
+let last = 0;
+function loop(now){
+  const dt = Math.min(50, now-last)/1000; last = now;
+
+  let dx=0, dy=0;
+  if(keys['w']||keys['arrowup']) dy -= 1;
+  if(keys['s']||keys['arrowdown']) dy += 1;
+  if(keys['a']||keys['arrowleft']) dx -= 1;
+  if(keys['d']||keys['arrowright']) dx += 1;
+  dx += joyVec.x; dy += joyVec.y;
+  const len = Math.hypot(dx,dy);
+  if(len > 1){ dx/=len; dy/=len; }
+
+  player.moving = len > 0.05;
+  if(player.moving){
+    if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
+    else player.facing = dy>0?'down':'up';
+    player.animT += dt;
+
+    const nx = player.x + dx*player.speed*dt;
+    const ny = player.y + dy*player.speed*dt;
+    if(canWalk(nx, player.y)) player.x = nx;
+    if(canWalk(player.x, ny)) player.y = ny;
+  }
+
+  const targetCx = player.x - VIEW_W/2 + player.w/2;
+  const targetCy = player.y - VIEW_H/2 + player.h/2;
+  camera.x += (targetCx - camera.x)*0.12;
+  camera.y += (targetCy - camera.y)*0.12;
+  camera.x = Math.max(0, Math.min(COLS*TILE - VIEW_W, camera.x));
+  camera.y = Math.max(0, Math.min(ROWS*TILE - VIEW_H, camera.y));
+
+  ctx.fillStyle = '#0288d1'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+
+  const startX = Math.floor(camera.x/TILE), startY = Math.floor(camera.y/TILE);
+  const endX = Math.ceil((camera.x+VIEW_W)/TILE), endY = Math.ceil((camera.y+VIEW_H)/TILE);
+  for(let y=startY;y<=endY;y++){
+    for(let x=startX;x<=endX;x++){
+      if(y<0||y>=ROWS||x<0||x>=COLS) continue;
+      drawTile(map[y][x], x*TILE - camera.x, y*TILE - camera.y);
+    }
+  }
+
+  drawPlayer(player.x - camera.x, player.y - camera.y);
+  requestAnimationFrame(loop);
+}
+
+function canWalk(nx, ny){
+  const margin = 8;
+  const corners = [
+    [nx+margin, ny+margin], [nx+player.w-margin, ny+margin],
+    [nx+margin, ny+player.h-4], [nx+player.w-margin, ny+player.h-4]
+  ];
+  for(const [cx,cy] of corners){
+    const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
+    if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
+    if(map[ty][tx].type === 2) return false; // Air ga bisa dilangkahi
+    if(map[ty][tx].obj && map[ty][tx].obj.type === 'tree') return false; // Pohon ga bisa dilangkahi
+  }
+  return true;
+}
+
+function resize(){
+  VIEW_W = cv.width = innerWidth;
+  VIEW_H = cv.height = innerHeight;
+}
+addEventListener('resize', resize);
+resize();
+document.getElementById('hint').addEventListener('click', e=> e.target.remove());
+
+// START GAME
+setTool('seed');
+requestAnimationFrame(loop);
