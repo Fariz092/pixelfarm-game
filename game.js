@@ -7,18 +7,46 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset Karakter
+// Load 12 Asset Karakter
 const playerImages = {
-    left: new Image(),
-    right: new Image(),
-    down: new Image(),
-    up: new Image()
+    left: {
+        walk1: new Image(),
+        idle: new Image(),
+        walk2: new Image()
+    },
+    right: {
+        walk1: new Image(),
+        idle: new Image(),
+        walk2: new Image()
+    },
+    up: {
+        walk1: new Image(),
+        idle: new Image(),
+        walk2: new Image()
+    },
+    down: {
+        walk1: new Image(),
+        idle: new Image(),
+        walk2: new Image()
+    }
 };
-// Sesuai urutan dari lu
-playerImages.left.src = '1.png';
-playerImages.right.src = '2.png';
-playerImages.down.src = '3.png';
-playerImages.up.src = '4.png';
+
+// Isi Source Gambar
+playerImages.left.walk1.src = 'kiri_langkah1.png';
+playerImages.left.idle.src = 'kiri_diem.png';
+playerImages.left.walk2.src = 'kiri_langkah2.png';
+
+playerImages.right.walk1.src = 'kanan_langkah1.png';
+playerImages.right.idle.src = 'kanan_diem.png';
+playerImages.right.walk2.src = 'kanan_langkah2.png';
+
+playerImages.up.walk1.src = 'atas_langkah1.png';
+playerImages.up.idle.src = 'atas_diem.png';
+playerImages.up.walk2.src = 'atas_langkah2.png';
+
+playerImages.down.walk1.src = 'bawah_langkah1.png';
+playerImages.down.idle.src = 'bawah_diem.png';
+playerImages.down.walk2.src = 'bawah_langkah2.png';
 
 // Data Map
 const map = [];
@@ -31,16 +59,17 @@ for(let y=0;y<ROWS;y++){
   }
 }
 
-// Spawn Karakter
+// State Karakter
 const player = {
   x: Math.floor(COLS/2) * TILE, 
   y: Math.floor(ROWS/2) * TILE,
   speed: 200, 
-  w: 64,  
-  h: 96,  
+  w: 80,  // Ukuran render karakter
+  h: 100, 
   facing: 'down', 
   moving: false, 
-  animT: 0
+  animT: 0,
+  frame: 'idle' // 'walk1', 'idle', 'walk2'
 };
 
 let camera = { x:0, y:0 };
@@ -102,49 +131,18 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  // 1. Gambar Shadow (Bayangan) biar nggak melayang
-  // Shadow ditaruh pas di bawah kaki
-  ctx.fillStyle = 'rgba(0,0,0,.4)';
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
   ctx.beginPath(); 
-  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-20), 18, 6, 0,0,Math.PI*2); 
+  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-15), 20, 7, 0,0,Math.PI*2); 
   ctx.fill();
 
-  // 2. Efek Animasi Jalan
-  let bob = 0;
-  let scaleY = 1;
-  let scaleX = 1;
+  // Ambil gambar sesuai arah dan frame
+  const currentImg = playerImages[player.facing][player.frame];
 
-  if (player.moving) {
-      // Naik turun cepet (simulasi kaki melangkah)
-      bob = Math.sin(player.animT * 20) * 4; 
-      // Efek Squash & Stretch (badan agak gepeng/memanjang)
-      scaleY = 1 + Math.sin(player.animT * 20) * 0.03;
-      scaleX = 1 - Math.sin(player.animT * 20) * 0.03;
-  }
-
-  const currentImg = playerImages[player.facing];
   if (currentImg && currentImg.complete) {
-      // Simpan state canvas
-      ctx.save();
-      
-      // Pindah titik tumpu ke tengah bawah karakter (biar scalingnya pas di kaki)
-      const centerX = px(sx) + player.w / 2;
-      const centerY = px(sy) + player.h - 20; 
-      ctx.translate(centerX, centerY);
-      ctx.scale(scaleX, scaleY);
-      
-      // Gambar karakter. 
-      // Posisi Y dikurangi banyak biar kakinya pas nempel tanah.
-      // bob bikin dia naik turun.
-      ctx.drawImage(
-          currentImg, 
-          -(player.w/2), 
-          -(player.h - 20) + bob, 
-          player.w, 
-          player.h
-      );
-      
-      ctx.restore();
+      // Posisi Y digeser biar nempel tanah (gak melayang)
+      ctx.drawImage(currentImg, px(sx), px(sy) - (player.h - TILE), player.w, player.h);
   } else {
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
   }
@@ -167,7 +165,7 @@ function loop(now){
   player.moving = len > 0.05;
   
   if(player.moving){
-    // Logika arah sesuai gambar lu
+    // Tentukan arah hadap
     if (Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) player.facing = 'right';
         else player.facing = 'left';
@@ -176,7 +174,13 @@ function loop(now){
         else player.facing = 'up';
     }
     
+    // Animasi Jalan (Ganti frame tiap 0.15 detik)
     player.animT += dt;
+    if (player.animT > 0.15) {
+        if (player.frame === 'idle' || player.frame === 'walk2') player.frame = 'walk1';
+        else player.frame = 'walk2';
+        player.animT = 0;
+    }
     
     const nx = player.x + dx*player.speed*dt;
     const ny = player.y + dy*player.speed*dt;
@@ -184,6 +188,8 @@ function loop(now){
     if(canWalk(nx, player.y)) player.x = nx;
     if(canWalk(player.x, ny)) player.y = ny;
   } else {
+    // Kalau diem, balikin ke frame diem
+    player.frame = 'idle';
     player.animT = 0; 
   }
 
