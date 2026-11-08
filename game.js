@@ -7,34 +7,34 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset Tanaman (Fase 1: Jagung)
+// Load Asset Tanaman (Jagung)
 const imgPohon = new Image();
-imgPohon.src = 'Pohon.png'; // Tetep ada buat hiasan map
+imgPohon.src = 'Pohon.png'; 
 
-// Array urutan pertumbuhan jagung
 const jagungStages = [
-    'benih-jagung.png',
-    'proses1.png',
-    'proses2.png',
-    'proses3.png',
-    'proses4.png',
-    'proses5.png',
-    'hasil-panen-jagung.png'
+    'benih-jagung.png', 'proses1.png', 'proses2.png', 
+    'proses3.png', 'proses4.png', 'proses5.png', 'hasil-panen-jagung.png'
 ];
+const jagungImages = jagungStages.map(src => { const img = new Image(); img.src = src; return img; });
 
-// Load semua gambar tahapan ke dalam array Image object
-const jagungImages = jagungStages.map(src => {
-    const img = new Image();
-    img.src = src;
-    return img;
-});
+// LOAD ASSET KARAKTER (1=Bawah, 2=Atas, 3=Kiri, 4=Kanan)
+const playerImages = {
+    down: new Image(),
+    up: new Image(),
+    left: new Image(),
+    right: new Image()
+};
+playerImages.down.src = '1.png';
+playerImages.up.src = '2.png';
+playerImages.left.src = '3.png';
+playerImages.right.src = '4.png';
 
 // Data Map
 const map = [];
 for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
-    let t = 0;
+    let t = 0; 
     if(x < 3 && y > 5 && y < 25) t = 2;
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
@@ -43,14 +43,13 @@ for(let y=0;y<ROWS;y++){
     if(t === 0 && Math.random() < 0.03 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
         obj = { type: 'tree' }; 
     }
-
     map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0, obj: obj };
   }
 }
 
 const player = {
   x: (COLS/2)*TILE, y: (ROWS/2)*TILE,
-  speed: 200, w: 32, h: 40,
+  speed: 180, w: 48, h: 64, // Karakter lebih gede dikit
   facing: 'down', moving: false, animT: 0
 };
 
@@ -59,7 +58,7 @@ let coins = 100;
 let tool = 'seed';
 
 const CROPS = {
-  seed:  {name:'Jagung', cost:5, time:12000, sell:30}, // 12 detik pertumbuhan
+  seed:  {name:'Jagung', cost:5, time:12000, sell:30},
 };
 
 // --- INPUT & JOYSTICK ---
@@ -141,7 +140,6 @@ function toast(msg){
 function px(x){ return Math.floor(x); }
 
 function drawTile(t, sx, sy){
-  // Gambar Tanah/Rumput
   if(t.type === 0){
     ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
     ctx.fillStyle = '#8bc34a';
@@ -158,38 +156,26 @@ function drawTile(t, sx, sy){
     ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
   }
 
-  // Gambar Pohon (Hiasan)
   if(t.obj && t.obj.type === 'tree' && imgPohon.complete){
     const treeW = 50 * 1.2; 
     const treeH = 61 * 1.2;
     ctx.drawImage(imgPohon, px(sx) + (TILE - treeW)/2, px(sy) - (treeH - TILE), treeW, treeH);
   }
   
-  // Gambar Tanaman Jagung (Animasi Bertahap)
   if(t.crop){
     const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
     t.growth = prog;
-
-    // Nentuin index gambar berdasarkan progres (0 sampai 6)
-    // 0 = benih, 1-5 = proses, 6 = hasil panen
     const stageIndex = Math.min(6, Math.floor(prog * 7)); 
     const currentImg = jagungImages[stageIndex];
 
     if (currentImg && currentImg.complete) {
-        // Gambar aslinya 688x154, kita sesuaikan biar masuk ke kotak 48x48
-        // Skala biar proporsional (tinggi jadi 48, lebar ngikutin)
         const imgRatio = currentImg.width / currentImg.height;
-        const drawHeight = TILE * 1.2; // Sedikit lebih besar dari kotak biar keliatan
+        const drawHeight = TILE * 1.2;
         const drawWidth = drawHeight * imgRatio;
-        
-        // Posisi tengah
         const offsetX = (TILE - drawWidth) / 2;
         const offsetY = (TILE - drawHeight) / 2;
-
         ctx.drawImage(currentImg, px(sx) + offsetX, px(sy) + offsetY, drawWidth, drawHeight);
     }
-
-    // Tanda panen
     if(prog >= 1){
       ctx.fillStyle = '#ffd54f';
       ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 6, 0, Math.PI*2); ctx.fill();
@@ -199,18 +185,19 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  ctx.fillStyle = 'rgba(0,0,0,.25)';
-  ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-2), 16, 6, 0,0,Math.PI*2); ctx.fill();
-  const cx = px(sx), cy = px(sy);
-  const walk = player.moving ? Math.sin(player.animT*12)*3 : 0;
-  ctx.fillStyle = '#3e2723'; ctx.fillRect(cx+6, cy+28+walk, 8, 12); ctx.fillRect(cx+18, cy+28-walk, 8, 12);
-  ctx.fillStyle = '#1565c0'; ctx.fillRect(cx+4, cy+14, 24, 18);
-  ctx.fillStyle = '#0d47a1'; ctx.fillRect(cx+4, cy+14, 24, 3);
-  ctx.fillStyle = '#1565c0'; ctx.fillRect(cx+0, cy+18, 5, 12); ctx.fillRect(cx+27, cy+18, 5, 12);
-  ctx.fillStyle = '#ffcc80'; ctx.fillRect(cx+8, cy, 16, 16);
-  ctx.fillStyle = '#4e342e'; ctx.fillRect(cx+8, cy, 16, 5); ctx.fillRect(cx+8, cy, 3, 10); ctx.fillRect(cx+21, cy, 3, 10);
-  if(player.facing !== 'up'){ ctx.fillStyle = '#000'; ctx.fillRect(cx+12, cy+8, 2, 3); ctx.fillRect(cx+18, cy+8, 2, 3); }
-  ctx.fillStyle = '#fbc02d'; ctx.fillRect(cx+4, cy-4, 24, 5); ctx.fillRect(cx+8, cy-8, 16, 5);
+  // Gambar Shadow di bawah karakter
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-4), 16, 6, 0,0,Math.PI*2); ctx.fill();
+
+  // Gambar Karakter sesuai arah hadap
+  const currentImg = playerImages[player.facing];
+  if (currentImg && currentImg.complete) {
+      // Karakter aslinya mungkin kotak, kita gambar di tengah
+      ctx.drawImage(currentImg, px(sx), px(sy) - 16, player.w, player.h);
+  } else {
+      // Fallback kalau gambar belum load (kotak biru)
+      ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
+  }
 }
 
 // --- GAME LOOP ---
@@ -229,9 +216,11 @@ function loop(now){
 
   player.moving = len > 0.05;
   if(player.moving){
+    // Nentuin arah hadap
     if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
     else player.facing = dy>0?'down':'up';
     player.animT += dt;
+    
     const nx = player.x + dx*player.speed*dt;
     const ny = player.y + dy*player.speed*dt;
     if(canWalk(nx, player.y)) player.x = nx;
