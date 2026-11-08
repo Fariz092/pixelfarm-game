@@ -19,17 +19,14 @@ for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
     let t = 0; // 0=Grass, 1=Path, 2=Water
-    // Bikin sungai di pinggir kiri
     if(x < 3 && y > 5 && y < 25) t = 2;
-    // Bikin danau di tengah atas
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
-    // Bikin jalan setapak dari tengah ke atas
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
-    // Generate Pohon (pakai indeks sprite dari Plants.png)
+    // Generate Pohon pake koordinat (Baris 2, Kolom 6 dari Plants.png)
     let obj = null;
-    if(t === 0 && Math.random() < 0.1 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
-        obj = { type: 'tree', spriteX: 0, spriteY: 0 };
+    if(t === 0 && Math.random() < 0.05 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
+        obj = { type: 'tree', sx: 5*32, sy: 1*32, sw: 32, sh: 32 }; 
     }
 
     map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0, obj: obj };
@@ -46,11 +43,15 @@ let camera = { x:0, y:0 };
 let coins = 100;
 let tool = 'seed';
 
+// Di sini kita tentuin hasil panen pakai Pisang dari Supplies.png
 const CROPS = {
-  seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12, spriteX: 0, spriteY: 0},
-  carrot:{name:'Wortel',  cost:10, time:8000,  sell:25, spriteX: 0, spriteY: 0},
-  corn:  {name:'Jagung',  cost:20, time:12000, sell:55, spriteX: 0, spriteY: 0},
+  seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12},
+  carrot:{name:'Wortel',  cost:10, time:8000,  sell:25},
+  corn:  {name:'Jagung',  cost:20, time:12000, sell:55},
 };
+
+// Koordinat Pisang dari Diagram B
+const BANANA_SPRITE = { x: 15, y: 32, w: 18, h: 18 };
 
 const TOOL_ICONS = {
   seed:  '<svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>',
@@ -131,7 +132,7 @@ function doAction(){
   if(t.tilled && t.crop && t.growth >= 1){
     coins += crop.sell;
     t.crop = null; t.growth = 0; t.tilled = false;
-    toast(`+${crop.sell} Koin`);
+    toast(`+${crop.sell} Koin (Pisang dipanen)`);
   } else if(!t.tilled){
     if(coins < crop.cost) return toast('Koin kurang!');
     coins -= crop.cost;
@@ -153,7 +154,6 @@ function toast(msg){
 function px(x){ return Math.floor(x); }
 
 function drawTile(t, sx, sy){
-  // Gambar Dasar (Tanah/Rumput/Air)
   if(t.type === 0){
     ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
     ctx.fillStyle = '#8bc34a';
@@ -173,10 +173,9 @@ function drawTile(t, sx, sy){
     ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
   }
 
-  // Gambar Pohon dari Plants.png (Asumsi pohon di koordinat 0,0 ukuran 32x32)
+  // Gambar Pohon
   if(t.obj && t.obj.type === 'tree' && imgPlants.complete){
-    // Scale 32px gambar jadi 48px (TILE)
-    ctx.drawImage(imgPlants, 0, 0, 32, 32, px(sx), px(sy)-16, TILE, TILE);
+    ctx.drawImage(imgPlants, t.obj.sx, t.obj.sy, t.obj.sw, t.obj.sh, px(sx), px(sy), TILE, TILE);
   }
   
   // Gambar Tanaman
@@ -185,13 +184,21 @@ function drawTile(t, sx, sy){
     t.growth = prog;
     
     if(imgPlants.complete){
-        // Gambar bibit (ukuran kecil pas awal, gede pas mau panen)
-        let size = TILE * (0.4 + prog*0.6);
+        let size = TILE * (0.5 + prog*0.5);
         let offset = TILE - size;
-        // Ambil contoh gambar dari Plants (gambar tanaman kecil di pojok kiri bawah)
-        ctx.drawImage(imgPlants, 0, 300, 32, 32, px(sx)+offset/2, px(sy)+offset/2, size, size);
+        
+        if (prog >= 1) {
+            // Kalau udah mateng, gambar Pisang dari Supplies.png
+            if (imgSupplies.complete) {
+                ctx.drawImage(imgSupplies, BANANA_SPRITE.x, BANANA_SPRITE.y, BANANA_SPRITE.w, BANANA_SPRITE.h, px(sx)+offset/2, px(sy)+offset/2, size, size);
+            }
+        } else {
+            // Kalau belum mateng, gambar tunas kecil dari Plants.png
+            ctx.drawImage(imgPlants, 0, 320, 32, 32, px(sx)+offset/2, px(sy)+offset/2, size, size);
+        }
     }
 
+    // Tanda kalau siap panen
     if(prog >= 1){
       ctx.fillStyle = '#ffd54f';
       ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 6, 0, Math.PI*2); ctx.fill();
@@ -273,8 +280,8 @@ function canWalk(nx, ny){
   for(const [cx,cy] of corners){
     const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
     if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
-    if(map[ty][tx].type === 2) return false; // Air ga bisa dilangkahi
-    if(map[ty][tx].obj && map[ty][tx].obj.type === 'tree') return false; // Pohon ga bisa dilangkahi
+    if(map[ty][tx].type === 2) return false; 
+    if(map[ty][tx].obj && map[ty][tx].obj.type === 'tree') return false; 
   }
   return true;
 }
@@ -287,6 +294,5 @@ addEventListener('resize', resize);
 resize();
 document.getElementById('hint').addEventListener('click', e=> e.target.remove());
 
-// START GAME
 setTool('seed');
 requestAnimationFrame(loop);
