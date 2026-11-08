@@ -1,86 +1,350 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Farm HD</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #1a1a1a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none;
-        }
-        /* Container game biar responsif */
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            max-width: 900px;
-            max-height: 600px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #4a7c59;
-        }
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain;
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-family: monospace;
-            font-size: 20px;
-            font-weight: bold;
-            z-index: 10;
-        }
-        /* Rotate overlay kalau masih portrait */
-        #rotate-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #111;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            font-family: sans-serif;
-            text-align: center;
-            padding: 20px;
-        }
-        @media (orientation: landscape) {
-            #rotate-overlay { display: none; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>🌾 Pixel Farm HD</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#1a1a1a;font-family:system-ui,sans-serif;touch-action:none}
+  #game{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width:100vw;height:100vh}
+  
+  /* HUD Atas */
+  .hud{position:fixed;top:16px;left:16px;display:flex;gap:8px;z-index:10;pointer-events:none}
+  .hud div{background:rgba(0,0,0,.7);color:#fff;padding:8px 14px;border-radius:10px;font-weight:700;font-size:14px;border:2px solid rgba(255,255,255,0.1);backdrop-filter:blur(4px)}
+  
+  /* Tombol Rotate */
+  .btn-rotate{position:fixed;top:16px;right:16px;width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,.7);border:2px solid rgba(255,255,255,0.2);color:#fff;font-size:20px;z-index:10;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px);transition:transform 0.2s}
+  .btn-rotate:active{transform:scale(0.9)}
+
+  /* Joystick */
+  .joystick{position:fixed;bottom:32px;left:32px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.1);border:3px solid rgba(255,255,255,.4);z-index:10;touch-action:none;backdrop-filter:blur(2px)}
+  .knob{position:absolute;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.9);left:30px;top:30px;pointer-events:none;transition:transform .05s}
+  
+  /* Tombol Aksi */
+  .btn-action{position:fixed;bottom:48px;right:32px;width:80px;height:80px;border-radius:50%;background:rgba(255,213,79,.9);border:4px solid #000;font-size:28px;z-index:10;display:flex;align-items:center;justify-content:center;user-select:none;cursor:pointer;box-shadow:0 4px 0 #000}
+  .btn-action:active{transform:translateY(4px);box-shadow:none}
+
+  /* Hint Overlay */
+  .hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;background:rgba(0,0,0,.85);padding:20px 28px;border-radius:16px;text-align:center;font-size:15px;line-height:1.8;z-index:20;border:2px solid #555;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+  .hint b{color:#ffd54f}
+</style>
 </head>
 <body>
-    <!-- Overlay muter layar -->
-    <div id="rotate-overlay">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 20px; animation: spin 2s linear infinite;">
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
-            <path d="M21 3v5h-5"></path>
-        </svg>
-        <h2 style="margin:0 0 10px 0;">Miringkan HP Lu</h2>
-        <p style="margin:0; color:#888;">Game ini lebih seru dimainkan dalam mode landscape.</p>
-        <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
-    </div>
+<canvas id="game"></canvas>
 
-    <div id="game-container">
-        <div id="loading">Menyiapkan Lahan...</div>
-    </div>
-    
-    <script src="game.js"></script>
+<div class="hud">
+  <div>💰 <b id="coins">100</b></div>
+  <div id="toolLabel">🌱 Bibit</div>
+</div>
+
+<div class="btn-rotate" id="rotateBtn">🔄</div>
+
+<div class="joystick" id="joy"><div class="knob" id="knob"></div></div>
+<div class="btn-action" id="action">🌱</div>
+
+<div class="hint" id="hint">
+  <b>WASD / panah</b> untuk gerak<br>
+  <b>SPASI / tombol kuning</b> untuk aksi<br><br>
+  <span style="font-size:12px;opacity:.7">klik untuk mulai</span>
+</div>
+
+<script>
+// --- LOGIKA ROTATE / FULLSCREEN ---
+document.getElementById('rotateBtn').addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('landscape').catch(() => {});
+      }
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch (err) {
+    alert('Browser lu ga mendukung fitur rotate otomatis. Coba miringin HP manual ya bre.');
+  }
+});
+
+// --- GAME START ---
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const TILE = 48;
+const COLS = 24, ROWS = 16;
+let VIEW_W, VIEW_H;
+
+const map = [];
+for(let y=0;y<ROWS;y++){
+  map[y]=[];
+  for(let x=0;x<COLS;x++){
+    let t = 0;
+    if(x<2 || y<2 || x>=COLS-2 || y>=ROWS-2) t = 2;
+    else if(x===10 && y>4 && y<12) t = 3;
+    map[y][x] = { type:t, tilled:false, crop:null, plantedAt:0, growth:0 };
+  }
+}
+
+const player = {
+  x: (COLS/2)*TILE, y: (ROWS/2)*TILE,
+  speed: 200, w: 32, h: 40,
+  facing: 'down', moving: false, animT: 0
+};
+
+let camera = { x:0, y:0 };
+let coins = 100;
+let tool = 'seed';
+
+const CROPS = {
+  seed:  {icon:'🌱', name:'Bibit',   cost:5,  time:5000,  sell:12, color:'#7cb342'},
+  carrot:{icon:'🥕', name:'Wortel',  cost:10, time:8000,  sell:25, color:'#ef6c00'},
+  corn:  {icon:'🌽', name:'Jagung',  cost:20, time:12000, sell:55, color:'#fbc02d'},
+};
+const TOOL_ORDER = ['seed','carrot','corn'];
+
+// --- INPUT ---
+const keys = {};
+addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(e.key === ' ') { e.preventDefault(); doAction(); }
+  if(e.key === '1') tool = 'seed';
+  if(e.key === '2') tool = 'carrot';
+  if(e.key === '3') tool = 'corn';
+  updateToolLabel();
+});
+addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
+
+// --- JOYSTICK (Sentuh & Geser) ---
+const joy = document.getElementById('joy'), knob = document.getElementById('knob');
+let joyVec = {x:0,y:0}, joyActive = false;
+
+function joyStart(e){ joyActive = true; e.preventDefault(); }
+function joyMove(e){
+  if(!joyActive) return;
+  e.preventDefault();
+  const t = e.touches ? e.touches[0] : e;
+  const r = joy.getBoundingClientRect();
+  let dx = t.clientX - (r.left+r.width/2);
+  let dy = t.clientY - (r.top+r.height/2);
+  const max = 30;
+  const len = Math.hypot(dx,dy);
+  if(len > max){ dx = dx/len*max; dy = dy/len*max; }
+  knob.style.transform = `translate(${dx}px,${dy}px)`;
+  joyVec = {x: dx/max, y: dy/max};
+}
+function joyEnd(){ joyActive = false; knob.style.transform=''; joyVec={x:0,y:0}; }
+
+joy.addEventListener('mousedown', joyStart);
+addEventListener('mousemove', joyMove);
+addEventListener('mouseup', joyEnd);
+joy.addEventListener('touchstart', joyStart, {passive:false});
+addEventListener('touchmove', joyMove, {passive:false});
+addEventListener('touchend', joyEnd);
+
+document.getElementById('action').addEventListener('click', doAction);
+
+// --- AKSI (TANAM/PANEN) ---
+function doAction(){
+  const px = player.x + player.w/2;
+  const py = player.y + player.h;
+  const fx = px + (player.facing==='left'?-TILE/2:player.facing==='right'?TILE/2:0);
+  const fy = py + (player.facing==='up'?-TILE/2:player.facing==='down'?TILE/2:0);
+  const tx = Math.floor(fx/TILE), ty = Math.floor(fy/TILE);
+  if(ty<0||ty>=ROWS||tx<0||tx>=COLS) return;
+  const t = map[ty][tx];
+  if(t.type !== 0 && !t.tilled) return;
+  const crop = CROPS[tool];
+
+  if(t.tilled && t.crop && t.growth >= 1){
+    coins += crop.sell;
+    t.crop = null; t.growth = 0; t.tilled = false;
+    toast(`✨ +${crop.sell}💰`);
+  } else if(!t.tilled){
+    if(coins < crop.cost) return toast('💰 kurang');
+    coins -= crop.cost;
+    t.tilled = true; t.crop = tool; t.plantedAt = performance.now(); t.growth = 0;
+    toast(`🌱 ${crop.name} ditanam`);
+  }
+  updateHUD();
+}
+
+function toast(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.cssText = 'position:fixed;bottom:150px;left:50%;transform:translateX(-50%);'+
+    'background:rgba(0,0,0,.85);color:#fff;padding:10px 20px;border-radius:99px;'+
+    'font-weight:700;font-size:14px;z-index:30;pointer-events:none;transition:opacity .3s;border:1px solid #444';
+  document.body.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300)},1000);
+}
+
+function updateHUD(){
+  document.getElementById('coins').textContent = coins;
+  document.getElementById('toolLabel').textContent = CROPS[tool].icon + ' ' + CROPS[tool].name;
+}
+function updateToolLabel(){ updateHUD(); }
+
+// --- RENDER ---
+function px(x){ return Math.floor(x); }
+
+function drawTile(t, sx, sy){
+  if(t.type === 0){
+    ctx.fillStyle = '#7cb342';
+    ctx.fillRect(px(sx), px(sy), TILE, TILE);
+    ctx.fillStyle = '#8bc34a';
+    for(let i=0;i<6;i++){
+      const gx = px(sx) + ((i*7+13)%TILE);
+      const gy = px(sy) + ((i*11+5)%TILE);
+      ctx.fillRect(gx, gy, 3, 5);
+      ctx.fillRect(gx+1, gy-2, 1, 3);
+    }
+  } else if(t.type === 1 || t.tilled){
+    ctx.fillStyle = '#6d4c41'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
+    ctx.fillStyle = '#5d4037';
+    for(let i=0;i<3;i++) ctx.fillRect(px(sx), px(sy)+i*16+3, TILE, 4);
+  } else if(t.type === 2){
+    ctx.fillStyle = '#0288d1'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
+    ctx.fillStyle = '#4fc3f7';
+    const off = (performance.now()/40)%TILE;
+    ctx.fillRect(px(sx)+off, px(sy)+8, 12, 3);
+    ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
+  } else if(t.type === 3){
+    ctx.fillStyle = '#a1887f'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
+    ctx.fillStyle = '#8d6e63';
+    ctx.fillRect(px(sx)+4,px(sy)+4,TILE-8,TILE-8);
+  }
+  
+  if(t.crop){
+    const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
+    t.growth = prog;
+    const c = CROPS[t.crop];
+    const size = 12 + prog*20;
+    ctx.font = `${Math.floor(size)}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.4 + prog*0.6;
+    ctx.fillText(c.icon, px(sx)+TILE/2, px(sy)+TILE/2 - (prog*4));
+    ctx.globalAlpha = 1;
+    if(prog >= 1){
+      ctx.fillStyle = '#ffd54f';
+      ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+function drawPlayer(sx, sy){
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-2), 16, 6, 0,0,Math.PI*2); ctx.fill();
+
+  const cx = px(sx), cy = px(sy);
+  const walk = player.moving ? Math.sin(player.animT*12)*3 : 0;
+  ctx.fillStyle = '#3e2723';
+  ctx.fillRect(cx+6, cy+28+walk, 8, 12);
+  ctx.fillRect(cx+18, cy+28-walk, 8, 12);
+  ctx.fillStyle = '#1565c0';
+  ctx.fillRect(cx+4, cy+14, 24, 18);
+  ctx.fillStyle = '#0d47a1';
+  ctx.fillRect(cx+4, cy+14, 24, 3);
+  ctx.fillStyle = '#1565c0';
+  ctx.fillRect(cx+0, cy+18, 5, 12);
+  ctx.fillRect(cx+27, cy+18, 5, 12);
+  ctx.fillStyle = '#ffcc80';
+  ctx.fillRect(cx+8, cy, 16, 16);
+  ctx.fillStyle = '#4e342e';
+  ctx.fillRect(cx+8, cy, 16, 5);
+  ctx.fillRect(cx+8, cy, 3, 10);
+  ctx.fillRect(cx+21, cy, 3, 10);
+  ctx.fillStyle = '#000';
+  if(player.facing !== 'up'){
+    ctx.fillRect(cx+12, cy+8, 2, 3);
+    ctx.fillRect(cx+18, cy+8, 2, 3);
+  }
+  ctx.fillStyle = '#fbc02d';
+  ctx.fillRect(cx+4, cy-4, 24, 5);
+  ctx.fillRect(cx+8, cy-8, 16, 5);
+  ctx.fillStyle = '#f9a825';
+  ctx.fillRect(cx+8, cy-2, 16, 2);
+}
+
+// --- GAME LOOP ---
+let last = 0;
+function loop(now){
+  const dt = Math.min(50, now-last)/1000; last = now;
+
+  let dx=0, dy=0;
+  if(keys['w']||keys['arrowup']) dy -= 1;
+  if(keys['s']||keys['arrowdown']) dy += 1;
+  if(keys['a']||keys['arrowleft']) dx -= 1;
+  if(keys['d']||keys['arrowright']) dx += 1;
+  dx += joyVec.x; dy += joyVec.y;
+  const len = Math.hypot(dx,dy);
+  if(len > 1){ dx/=len; dy/=len; }
+
+  player.moving = len > 0.05;
+  if(player.moving){
+    if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
+    else player.facing = dy>0?'down':'up';
+    player.animT += dt;
+
+    const nx = player.x + dx*player.speed*dt;
+    const ny = player.y + dy*player.speed*dt;
+    if(canWalk(nx, player.y)) player.x = nx;
+    if(canWalk(player.x, ny)) player.y = ny;
+  }
+
+  const targetCx = player.x - VIEW_W/2 + player.w/2;
+  const targetCy = player.y - VIEW_H/2 + player.h/2;
+  camera.x += (targetCx - camera.x)*0.12;
+  camera.y += (targetCy - camera.y)*0.12;
+
+  camera.x = Math.max(0, Math.min(COLS*TILE - VIEW_W, camera.x));
+  camera.y = Math.max(0, Math.min(ROWS*TILE - VIEW_H, camera.y));
+
+  ctx.fillStyle = '#0288d1';
+  ctx.fillRect(0,0,VIEW_W,VIEW_H);
+
+  const startX = Math.floor(camera.x/TILE);
+  const startY = Math.floor(camera.y/TILE);
+  const endX = Math.ceil((camera.x+VIEW_W)/TILE);
+  const endY = Math.ceil((camera.y+VIEW_H)/TILE);
+  for(let y=startY;y<=endY;y++){
+    for(let x=startX;x<=endX;x++){
+      if(y<0||y>=ROWS||x<0||x>=COLS) continue;
+      const sx = x*TILE - camera.x;
+      const sy = y*TILE - camera.y;
+      drawTile(map[y][x], sx, sy);
+    }
+  }
+
+  drawPlayer(player.x - camera.x, player.y - camera.y);
+  requestAnimationFrame(loop);
+}
+
+function canWalk(nx, ny){
+  const margin = 8;
+  const corners = [
+    [nx+margin, ny+margin],
+    [nx+player.w-margin, ny+margin],
+    [nx+margin, ny+player.h-4],
+    [nx+player.w-margin, ny+player.h-4]
+  ];
+  for(const [cx,cy] of corners){
+    const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
+    if(tx<0||ty<0||tx>=COLS||ty>=ROWS) return false;
+    if(map[ty][tx].type === 2) return false;
+  }
+  return true;
+}
+
+function resize(){
+  VIEW_W = cv.width = innerWidth;
+  VIEW_H = cv.height = innerHeight;
+}
+addEventListener('resize', resize);
+resize();
+document.getElementById('hint').addEventListener('click', e=> e.target.remove());
+updateHUD();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
