@@ -7,25 +7,40 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset (Pake file yang baru lu export)
+// Load Asset Tanaman (Fase 1: Jagung)
 const imgPohon = new Image();
-imgPohon.src = 'Pohon.png';
-const imgJagung = new Image();
-imgJagung.src = 'Jagung.png'; // Hasil panennya kita pake jagung dulu
+imgPohon.src = 'Pohon.png'; // Tetep ada buat hiasan map
+
+// Array urutan pertumbuhan jagung
+const jagungStages = [
+    'benih-jagung.png',
+    'proses1.png',
+    'proses2.png',
+    'proses3.png',
+    'proses4.png',
+    'proses5.png',
+    'hasil-panen-jagung.png'
+];
+
+// Load semua gambar tahapan ke dalam array Image object
+const jagungImages = jagungStages.map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+});
 
 // Data Map
 const map = [];
 for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
-    let t = 0; // 0=Grass, 1=Path, 2=Water
+    let t = 0;
     if(x < 3 && y > 5 && y < 25) t = 2;
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
-    // Generate Pohon pake Pohon.png
     let obj = null;
-    if(t === 0 && Math.random() < 0.05 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
+    if(t === 0 && Math.random() < 0.03 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
         obj = { type: 'tree' }; 
     }
 
@@ -44,22 +59,8 @@ let coins = 100;
 let tool = 'seed';
 
 const CROPS = {
-  seed:  {name:'Bibit',   cost:5,  time:5000,  sell:12},
-  carrot:{name:'Wortel',  cost:10, time:8000,  sell:25},
-  corn:  {name:'Jagung',  cost:20, time:12000, sell:55},
+  seed:  {name:'Jagung', cost:5, time:12000, sell:30}, // 12 detik pertumbuhan
 };
-
-const TOOL_ICONS = {
-  seed:  '<svg viewBox="0 0 24 24"><path d="M12 2C9.24 2 7 4.24 7 7v2h10V7c0-2.76-2.24-5-5-5zm-3 9v6c0 2.76 2.24 5 5 5s5-2.24 5-5v-6H9z"/></svg>',
-  carrot:'<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>',
-  corn:  '<svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>'
-};
-
-function setTool(newTool) {
-  tool = newTool;
-  document.getElementById('toolLabel').textContent = CROPS[tool].name;
-  document.getElementById('toolIcon').innerHTML = TOOL_ICONS[tool];
-}
 
 // --- INPUT & JOYSTICK ---
 const keys = {};
@@ -111,8 +112,8 @@ function doAction(){
   const t = map[ty][tx];
   
   if(t.obj && t.obj.type === 'tree') return toast('Ada pohon!');
-
   if(t.type !== 0 && t.type !== 1 && !t.tilled) return;
+  
   const crop = CROPS[tool];
 
   if(t.tilled && t.crop && t.growth >= 1){
@@ -140,6 +141,7 @@ function toast(msg){
 function px(x){ return Math.floor(x); }
 
 function drawTile(t, sx, sy){
+  // Gambar Tanah/Rumput
   if(t.type === 0){
     ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
     ctx.fillStyle = '#8bc34a';
@@ -156,36 +158,38 @@ function drawTile(t, sx, sy){
     ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
   }
 
-  // Gambar Pohon (Skala disesuaiin biar proporsional)
+  // Gambar Pohon (Hiasan)
   if(t.obj && t.obj.type === 'tree' && imgPohon.complete){
-    // Kita gambar pohonnya di tengah tile, agak ke atas biar keliatan berdiri
-    const treeW = 50 * 1.2; // Lebar asli 50px, kita scale dikit
+    const treeW = 50 * 1.2; 
     const treeH = 61 * 1.2;
     ctx.drawImage(imgPohon, px(sx) + (TILE - treeW)/2, px(sy) - (treeH - TILE), treeW, treeH);
   }
   
-  // Gambar Tanaman
+  // Gambar Tanaman Jagung (Animasi Bertahap)
   if(t.crop){
     const prog = Math.min(1, (performance.now()-t.plantedAt)/CROPS[t.crop].time);
     t.growth = prog;
-    
-    if (prog >= 1) {
-        // Kalau udah mateng, gambar Jagung
-        if (imgJagung.complete) {
-            const jW = 23 * 1.5; // Scale jagung biar keliatan
-            const jH = 23 * 1.5;
-            ctx.drawImage(imgJagung, px(sx) + (TILE - jW)/2, px(sy) + (TILE - jH)/2, jW, jH);
-        }
-    } else {
-        // Kalau belum mateng, gambar kecambah ijo kecil
-        ctx.fillStyle = '#4caf50';
-        const size = 10 + (prog * 15);
-        ctx.beginPath();
-        ctx.ellipse(px(sx) + TILE/2, px(sy) + TILE/2, size/2, size, 0, 0, Math.PI*2);
-        ctx.fill();
+
+    // Nentuin index gambar berdasarkan progres (0 sampai 6)
+    // 0 = benih, 1-5 = proses, 6 = hasil panen
+    const stageIndex = Math.min(6, Math.floor(prog * 7)); 
+    const currentImg = jagungImages[stageIndex];
+
+    if (currentImg && currentImg.complete) {
+        // Gambar aslinya 688x154, kita sesuaikan biar masuk ke kotak 48x48
+        // Skala biar proporsional (tinggi jadi 48, lebar ngikutin)
+        const imgRatio = currentImg.width / currentImg.height;
+        const drawHeight = TILE * 1.2; // Sedikit lebih besar dari kotak biar keliatan
+        const drawWidth = drawHeight * imgRatio;
+        
+        // Posisi tengah
+        const offsetX = (TILE - drawWidth) / 2;
+        const offsetY = (TILE - drawHeight) / 2;
+
+        ctx.drawImage(currentImg, px(sx) + offsetX, px(sy) + offsetY, drawWidth, drawHeight);
     }
 
-    // Tanda kalau siap panen
+    // Tanda panen
     if(prog >= 1){
       ctx.fillStyle = '#ffd54f';
       ctx.beginPath(); ctx.arc(px(sx)+TILE-8, px(sy)+8, 6, 0, Math.PI*2); ctx.fill();
@@ -273,5 +277,4 @@ addEventListener('resize', resize);
 resize();
 document.getElementById('hint').addEventListener('click', e=> e.target.remove());
 
-setTool('seed');
 requestAnimationFrame(loop);
