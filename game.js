@@ -7,7 +7,7 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset Tanaman (Jagung)
+// Load Asset Tanaman
 const imgPohon = new Image();
 imgPohon.src = 'Pohon.png'; 
 
@@ -17,7 +17,7 @@ const jagungStages = [
 ];
 const jagungImages = jagungStages.map(src => { const img = new Image(); img.src = src; return img; });
 
-// LOAD ASSET KARAKTER (1=Bawah, 2=Atas, 3=Kiri, 4=Kanan)
+// Load Asset Karakter (1=Bawah, 2=Atas, 3=Kiri, 4=Kanan)
 const playerImages = {
     down: new Image(),
     up: new Image(),
@@ -35,11 +35,15 @@ for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
     let t = 0; 
+    // Air di kiri
     if(x < 3 && y > 5 && y < 25) t = 2;
+    // Danau di atas
     if(x > 15 && x < 22 && y > 3 && y < 8) t = 2;
+    // Jalan setapak
     if(x > 18 && x < 22 && y > 7 && y < 15) t = 1;
     
     let obj = null;
+    // Spawn pohon acak, tapi jangan di area tengah (biar spawn aman)
     if(t === 0 && Math.random() < 0.03 && !(x > 10 && x < 30 && y > 10 && y < 20)) {
         obj = { type: 'tree' }; 
     }
@@ -47,9 +51,17 @@ for(let y=0;y<ROWS;y++){
   }
 }
 
+// CARI POSISI SPAWN YANG AMAN (BUKAN AIR)
+let spawnX = Math.floor(COLS/2);
+let spawnY = Math.floor(ROWS/2);
+// Kalau di tengah ada air, geser ke bawah sampai dapet rumput
+while(map[spawnY][spawnX].type === 2) {
+    spawnY++; 
+}
+
 const player = {
-  x: (COLS/2)*TILE, y: (ROWS/2)*TILE,
-  speed: 180, w: 48, h: 64, // Karakter lebih gede dikit
+  x: spawnX * TILE, y: spawnY * TILE, // Posisi spawn aman
+  speed: 180, w: 48, h: 64, 
   facing: 'down', moving: false, animT: 0
 };
 
@@ -185,17 +197,16 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  // Gambar Shadow di bawah karakter
+  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,.3)';
   ctx.beginPath(); ctx.ellipse(px(sx+player.w/2), px(sy+player.h-4), 16, 6, 0,0,Math.PI*2); ctx.fill();
 
-  // Gambar Karakter sesuai arah hadap
+  // Gambar Karakter
   const currentImg = playerImages[player.facing];
   if (currentImg && currentImg.complete) {
-      // Karakter aslinya mungkin kotak, kita gambar di tengah
       ctx.drawImage(currentImg, px(sx), px(sy) - 16, player.w, player.h);
   } else {
-      // Fallback kalau gambar belum load (kotak biru)
+      // Fallback
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
   }
 }
@@ -216,7 +227,6 @@ function loop(now){
 
   player.moving = len > 0.05;
   if(player.moving){
-    // Nentuin arah hadap
     if(Math.abs(dx) > Math.abs(dy)) player.facing = dx>0?'right':'left';
     else player.facing = dy>0?'down':'up';
     player.animT += dt;
