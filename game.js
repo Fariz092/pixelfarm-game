@@ -7,17 +7,18 @@ const TILE = 48;
 const COLS = 40, ROWS = 30;
 let VIEW_W, VIEW_H;
 
-// Load Asset Karakter (1=Bawah, 2=Atas, 3=Kiri, 4=Kanan)
+// Load Asset Karakter
 const playerImages = {
-    down: new Image(),
-    up: new Image(),
     left: new Image(),
-    right: new Image()
+    right: new Image(),
+    down: new Image(),
+    up: new Image()
 };
-playerImages.down.src = '1.png';
-playerImages.up.src = '2.png';
-playerImages.left.src = '3.png';
-playerImages.right.src = '4.png';
+// Sesuai urutan dari lu
+playerImages.left.src = '1.png';
+playerImages.right.src = '2.png';
+playerImages.down.src = '3.png';
+playerImages.up.src = '4.png';
 
 // Data Map
 const map = [];
@@ -35,8 +36,8 @@ const player = {
   x: Math.floor(COLS/2) * TILE, 
   y: Math.floor(ROWS/2) * TILE,
   speed: 200, 
-  w: 64,  // Lebar render
-  h: 96,  // Tinggi render
+  w: 64,  
+  h: 96,  
   facing: 'down', 
   moving: false, 
   animT: 0
@@ -101,19 +102,49 @@ function drawTile(t, sx, sy){
 }
 
 function drawPlayer(sx, sy){
-  // Shadow di tanah
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  // 1. Gambar Shadow (Bayangan) biar nggak melayang
+  // Shadow ditaruh pas di bawah kaki
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); 
-  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-12), 20, 8, 0,0,Math.PI*2); 
+  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-20), 18, 6, 0,0,Math.PI*2); 
   ctx.fill();
 
-  // Efek Animasi Jalan (naik turun dikit)
-  const bob = player.moving ? Math.sin(player.animT * 15) * 3 : 0;
+  // 2. Efek Animasi Jalan
+  let bob = 0;
+  let scaleY = 1;
+  let scaleX = 1;
+
+  if (player.moving) {
+      // Naik turun cepet (simulasi kaki melangkah)
+      bob = Math.sin(player.animT * 20) * 4; 
+      // Efek Squash & Stretch (badan agak gepeng/memanjang)
+      scaleY = 1 + Math.sin(player.animT * 20) * 0.03;
+      scaleX = 1 - Math.sin(player.animT * 20) * 0.03;
+  }
 
   const currentImg = playerImages[player.facing];
   if (currentImg && currentImg.complete) {
-      // Gua turunin posisinya biar nempel tanah
-      ctx.drawImage(currentImg, px(sx), px(sy) - 30 + bob, player.w, player.h);
+      // Simpan state canvas
+      ctx.save();
+      
+      // Pindah titik tumpu ke tengah bawah karakter (biar scalingnya pas di kaki)
+      const centerX = px(sx) + player.w / 2;
+      const centerY = px(sy) + player.h - 20; 
+      ctx.translate(centerX, centerY);
+      ctx.scale(scaleX, scaleY);
+      
+      // Gambar karakter. 
+      // Posisi Y dikurangi banyak biar kakinya pas nempel tanah.
+      // bob bikin dia naik turun.
+      ctx.drawImage(
+          currentImg, 
+          -(player.w/2), 
+          -(player.h - 20) + bob, 
+          player.w, 
+          player.h
+      );
+      
+      ctx.restore();
   } else {
       ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
   }
@@ -136,7 +167,7 @@ function loop(now){
   player.moving = len > 0.05;
   
   if(player.moving){
-    // Perbaikan Logika Arah (Gak kebalik lagi)
+    // Logika arah sesuai gambar lu
     if (Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) player.facing = 'right';
         else player.facing = 'left';
@@ -153,7 +184,7 @@ function loop(now){
     if(canWalk(nx, player.y)) player.x = nx;
     if(canWalk(player.x, ny)) player.y = ny;
   } else {
-    player.animT = 0; // Reset animasi pas diem
+    player.animT = 0; 
   }
 
   const targetCx = player.x - VIEW_W/2 + player.w/2;
