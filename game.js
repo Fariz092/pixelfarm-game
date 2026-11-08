@@ -1,13 +1,14 @@
-// --- SETUP ---
+// --- SETUP DASAR ---
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const TILE = 48;
-const COLS = 40, ROWS = 30;
+const TILE = 48; 
+const COLS = 20; // Map lebih kecil (20 kotak)
+const ROWS = 15; // Map lebih kecil (15 kotak)
 let VIEW_W, VIEW_H;
 
-// Load 12 Asset Karakter
+// --- LOAD GAMBAR ---
 const playerImages = {
     left: { walk1: new Image(), idle: new Image(), walk2: new Image() },
     right: { walk1: new Image(), idle: new Image(), walk2: new Image() },
@@ -31,28 +32,29 @@ playerImages.down.walk1.src = 'bawah_langkah1.png';
 playerImages.down.idle.src = 'bawah_diem.png';
 playerImages.down.walk2.src = 'bawah_langkah2.png';
 
-// Data Map
+// --- DATA MAP ---
 const map = [];
 for(let y=0;y<ROWS;y++){
   map[y]=[];
   for(let x=0;x<COLS;x++){
-    let t = 0; 
-    if(x < 3 && y > 5 && y < 25) t = 2; // Air
-    map[y][x] = { type:t };
+    let type = 0; // 0 = Rumput
+    // Bikin air di pinggir kiri
+    if (x < 2) type = 2; 
+    map[y][x] = { type: type };
   }
 }
 
-// State Karakter
+// --- STATE KARAKTER ---
 const player = {
   x: Math.floor(COLS/2) * TILE, 
   y: Math.floor(ROWS/2) * TILE,
-  speed: 200, 
-  w: 80,  
-  h: 100, 
+  speed: 180, 
+  w: 64,  // Lebar gambar di layar
+  h: 80,  // Tinggi gambar di layar
   facing: 'down', 
   moving: false, 
   animT: 0,
-  frame: 'idle' 
+  frame: 'idle'
 };
 
 let camera = { x:0, y:0 };
@@ -81,7 +83,7 @@ function joyEnd(){ joyActive = false; knob.style.transform=''; joyVec={x:0,y:0};
 joy.addEventListener('mousedown', joyStart); addEventListener('mousemove', joyMove); addEventListener('mouseup', joyEnd);
 joy.addEventListener('touchstart', joyStart, {passive:false}); addEventListener('touchmove', joyMove, {passive:false}); addEventListener('touchend', joyEnd);
 
-// --- POPUP ---
+// --- POPUP UI ---
 const popup = document.getElementById('settingsPopup');
 document.getElementById('menuBtn').addEventListener('click', () => popup.classList.add('active'));
 popup.addEventListener('click', (e) => { if (e.target === popup) popup.classList.remove('active'); });
@@ -101,36 +103,39 @@ function px(x){ return Math.floor(x); }
 
 function drawTile(t, sx, sy){
   if(t.type === 0){
-    ctx.fillStyle = '#7cb342'; ctx.fillRect(px(sx), px(sy), TILE, TILE);
+    ctx.fillStyle = '#7cb342'; // Rumput
+    ctx.fillRect(px(sx), px(sy), TILE, TILE);
+    // Detail rumput
     ctx.fillStyle = '#8bc34a';
-    for(let i=0;i<6;i++){ const gx = px(sx) + ((i*7+13)%TILE), gy = px(sy) + ((i*11+5)%TILE); ctx.fillRect(gx, gy, 3, 5); }
+    for(let i=0;i<4;i++){ 
+        const gx = px(sx) + ((i*13)%TILE), gy = px(sy) + ((i*17)%TILE); 
+        ctx.fillRect(gx, gy, 3, 5); 
+    }
   } else if(t.type === 2){
-    ctx.fillStyle = '#0288d1'; ctx.fillRect(px(sx),px(sy),TILE,TILE);
-    ctx.fillStyle = '#4fc3f7';
-    const off = (performance.now()/40)%TILE;
-    ctx.fillRect(px(sx)+off, px(sy)+8, 12, 3);
-    ctx.fillRect(px(sx)+((off+24)%TILE), px(sy)+28, 16, 3);
+    ctx.fillStyle = '#0288d1'; // Air
+    ctx.fillRect(px(sx),px(sy),TILE,TILE);
   }
 }
 
 function drawPlayer(sx, sy){
-  // Shadow digambar pas di area kaki
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  // 1. Gambar Bayangan di bawah kaki
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); 
-  ctx.ellipse(px(sx+player.w/2), px(sy+player.h-20), 20, 7, 0,0,Math.PI*2); 
+  // Bayangan ditaruh pas di tengah bawah
+  ctx.ellipse(px(sx + player.w/2), px(sy + player.h - 5), 15, 5, 0,0,Math.PI*2); 
   ctx.fill();
 
+  // 2. Ambil Gambar
   const currentImg = playerImages[player.facing][player.frame];
 
   if (currentImg && currentImg.complete) {
-      // TRIK BIAR NEMPEL TANAH:
-      // player.h adalah 100. TILE adalah 48.
-      // Kita geser Y ke atas sebanyak (player.h - TILE + 20). 
-      // Angka 20 ini bisa lu ubah (misal 15 atau 25) biar kakinya pas banget di tanah.
-      const offsetY = player.h - TILE + 20; 
-      ctx.drawImage(currentImg, px(sx), px(sy) - offsetY, player.w, player.h);
+      // Gambar dari titik kiri-atas (sx, sy)
+      // Karena sy itu patokan kita di kaki, kita kurangi tinggi gambar biar pas
+      ctx.drawImage(currentImg, px(sx), px(sy) - player.h + TILE, player.w, player.h);
   } else {
-      ctx.fillStyle = '#1565c0'; ctx.fillRect(px(sx)+8, px(sy)+16, 32, 40);
+      // Fallback kotak biru
+      ctx.fillStyle = '#1565c0'; 
+      ctx.fillRect(px(sx)+8, px(sy) - player.h + TILE, player.w - 16, player.h);
   }
 }
 
@@ -166,62 +171,57 @@ function loop(now){
         player.animT = 0;
     }
     
-    const nx = player.x + dx*player.speed*dt;
-    const ny = player.y + dy*player.speed*dt;
-    
-    // Cek pergerakan X dan Y secara terpisah
-    if(canWalk(nx, player.y)) player.x = nx;
-    if(canWalk(player.x, ny)) player.y = ny;
-    
-    // Jaga-jaga kalau nyangkut di luar map
+    // Gerakin posisi
+    player.x += dx * player.speed * dt;
+    player.y += dy * player.speed * dt;
+
+    // BATESIN BIAR GAK KELUAR MAP
     if (player.x < 0) player.x = 0;
     if (player.y < 0) player.y = 0;
-    
+    if (player.x > (COLS * TILE) - player.w) player.x = (COLS * TILE) - player.w;
+    if (player.y > (ROWS * TILE) - player.h) player.y = (ROWS * TILE) - player.h;
+
   } else {
     player.frame = 'idle';
     player.animT = 0; 
   }
 
+  // KAMERA
   const targetCx = player.x - VIEW_W/2 + player.w/2;
   const targetCy = player.y - VIEW_H/2 + player.h/2;
-  camera.x += (targetCx - camera.x)*0.12;
-  camera.y += (targetCy - camera.y)*0.12;
+  
+  // Pake lerp biar halus
+  camera.x += (targetCx - camera.x) * 0.1;
+  camera.y += (targetCy - camera.y) * 0.1;
+  
+  // Batasin kamera biar gak nembus map
   camera.x = Math.max(0, Math.min(COLS*TILE - VIEW_W, camera.x));
   camera.y = Math.max(0, Math.min(ROWS*TILE - VIEW_H, camera.y));
 
-  ctx.fillStyle = '#0288d1'; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  // --- DRAW ---
+  // Bersihin layar
+  ctx.fillStyle = '#111'; 
+  ctx.fillRect(0,0,VIEW_W,VIEW_H);
 
-  const startX = Math.floor(camera.x/TILE), startY = Math.floor(camera.y/TILE);
-  const endX = Math.ceil((camera.x+VIEW_W)/TILE), endY = Math.ceil((camera.y+VIEW_H)/TILE);
+  // Gambar Map
+  const startX = Math.max(0, Math.floor(camera.x/TILE));
+  const startY = Math.max(0, Math.floor(camera.y/TILE));
+  const endX = Math.min(COLS-1, Math.ceil((camera.x+VIEW_W)/TILE));
+  const endY = Math.min(ROWS-1, Math.ceil((camera.y+VIEW_H)/TILE));
+  
   for(let y=startY;y<=endY;y++){
     for(let x=startX;x<=endX;x++){
-      if(y<0||y>=ROWS||x<0||x>=COLS) continue;
       drawTile(map[y][x], x*TILE - camera.x, y*TILE - camera.y);
     }
   }
 
+  // Gambar Player
   drawPlayer(player.x - camera.x, player.y - camera.y);
+  
   requestAnimationFrame(loop);
 }
 
-// COLLISION LEBIH LONGGAR
-function canWalk(nx, ny){
-  // Cuma ngecek area kaki (bawah tengah), biar badannya bisa "overlap" dikit
-  const cx = nx + player.w/2;
-  const cy = ny + player.h - 15; // Titik di area kaki
-  
-  // Cek titik kaki aja
-  const tx = Math.floor(cx/TILE), ty = Math.floor(cy/TILE);
-  
-  // Kalau di luar batas map, tolak
-  if(tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return false;
-  
-  // Kalau kena air, tolak
-  if(map[ty][tx].type === 2) return false; 
-  
-  return true;
-}
-
+// --- RESIZE ---
 function resize(){ 
     VIEW_W = cv.width = window.innerWidth; 
     VIEW_H = cv.height = window.innerHeight; 
